@@ -51,29 +51,6 @@ export class SyncStore {
     this.db.exec(SCHEMA);
   }
 
-  /**
-   * Sync records describe one account on one server. If a different account logs in, the
-   * old records would make that account's missing saves look "deleted on the server", so
-   * they are dropped and every file is treated as never synced.
-   */
-  bindAccount(account: string): void {
-    const current = this.db.prepare("SELECT value FROM meta WHERE key = 'account'").get();
-    if (current?.['value'] === account) return;
-    this.db.exec('BEGIN');
-    try {
-      this.db.exec(
-        'DELETE FROM sync_records; DELETE FROM rom_sync_reports; DELETE FROM library_cache;',
-      );
-      this.db
-        .prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('account', ?)")
-        .run(account);
-      this.db.exec('COMMIT');
-    } catch (error) {
-      this.db.exec('ROLLBACK');
-      throw error;
-    }
-  }
-
   getRecord({ romId, kind, fileName }: SyncKey): SyncRecord | null {
     const row = this.db
       .prepare(

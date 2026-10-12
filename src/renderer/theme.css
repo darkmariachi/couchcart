@@ -25,16 +25,6 @@
   --radius: 0.75rem;
   --focus-ring: 0 0 0 0.2rem var(--romm-primary-light), 0 0 2rem rgba(139, 116, 232, 0.55);
 
-  /* Names the mouse-only debug screen still uses. */
-  --surface-0: var(--background);
-  --surface-1: var(--panel);
-  --surface-2: var(--glass-strong);
-  --border: var(--glass-border-strong);
-  --romm-peach: var(--romm-accent);
-  --romm-lavender: var(--text-soft);
-  --romm-purple: var(--romm-primary-dark);
-  --romm-deep-purple: var(--glass-strong);
-
   --danger: #ff8f8f;
   --ok: #6fdc8c;
 

@@ -554,29 +554,3 @@ describe('backups', () => {
     expect(kept.map(readBackup)).toEqual(['server-v2', 'server-v3', 'server-v4']);
   });
 });
-
-describe('switching accounts', () => {
-  it('does not treat the previous account as proof that saves were deleted', async () => {
-    store.bindAccount('https://romm.example|alice');
-    writeLocalSave('alice-progress');
-    await sync();
-
-    // Bob logs in on the same PC; his account has no saves for this game.
-    store.bindAccount('https://romm.example|bob');
-    remote.saves = [];
-    const report = await sync();
-
-    expect(itemFor(report.items, SAVE)?.action).not.toBe('delete_local');
-    expect(localSave()).toBe('alice-progress');
-  });
-
-  it('keeps records when the same account logs in again', async () => {
-    store.bindAccount('https://romm.example|alice');
-    writeLocalSave('v1');
-    await sync();
-
-    store.bindAccount('https://romm.example|alice');
-
-    expect((await sync()).items[0]).toMatchObject({ action: 'none' });
-  });
-});

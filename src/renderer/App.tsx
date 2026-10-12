@@ -18,7 +18,6 @@ import { InputProvider } from './input/InputProvider';
 import { useControls } from './input/controls';
 import { AccountScreen } from './screens/AccountScreen';
 import { CollectionsScreen, PlatformsScreen } from './screens/BrowseScreens';
-import { DebugScreen } from './screens/Debug/DebugScreen';
 import { DownloadsScreen } from './screens/DownloadsScreen';
 import { GameScreen } from './screens/GameScreen';
 import { GridScreen } from './screens/GridScreen';
@@ -44,7 +43,7 @@ function Shell() {
   useRefreshLibraryAfterActivity(launch);
   useControllerRedetection();
 
-  const { push, reset } = useUi();
+  const { reset } = useUi();
   const [menuOpen, setMenuOpen] = useState(false);
   const section = useSection();
   const goTo = useUi((state) => state.goTo);
@@ -85,10 +84,7 @@ function Shell() {
 
   const menu: MenuItem[] = [
     ...(inLibrary
-      ? [
-          { label: 'Search', run: () => goTo({ name: 'search', openKeyboard: true }) },
-          { label: 'Debug tools', run: () => push({ name: 'debug' }) },
-        ]
+      ? [{ label: 'Search', run: () => goTo({ name: 'search', openKeyboard: true }) }]
       : []),
     { label: 'Toggle fullscreen', run: () => void window.romm.app.toggleFullscreen() },
     ...(auth.data.loggedIn ? [{ label: 'Sign out', run: () => void signOut() }] : []),
@@ -138,14 +134,5 @@ function CurrentScreen() {
       return <DownloadsScreen />;
     case 'account':
       return <AccountScreen />;
-    case 'debug':
-      return <DebugRoute />;
   }
-}
-
-/** The mouse-and-keyboard diagnostics screen from the early milestones. */
-function DebugRoute() {
-  const pop = useUi((state) => state.pop);
-  useControls({ back: { label: 'Back', run: pop } }, { level: 10 });
-  return <DebugScreen />;
 }

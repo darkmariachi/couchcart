@@ -1,10 +1,5 @@
 // The single source of truth for everything that crosses the main <-> renderer boundary.
-import type { components } from '../main/romm/schema';
 import type { SyncAction } from '../main/saves/syncDecision';
-
-type Schemas = components['schemas'];
-export type RommSave = Schemas['SaveSchema'];
-export type RommState = Schemas['StateSchema'];
 
 // ---------- Account and server ----------
 
@@ -124,25 +119,6 @@ export type GridSource =
   | { type: 'platform'; platformId: number }
   | { type: 'collection'; kind: CollectionKind; id: string }
   | { type: 'search'; term: string };
-
-export interface RomQuery {
-  platformId: number;
-  search?: string;
-  offset: number;
-  limit: number;
-}
-
-export interface RomPage {
-  items: RomSummary[];
-  total: number;
-  offset: number;
-  limit: number;
-}
-
-export interface RomAssets {
-  saves: RommSave[];
-  states: RommState[];
-}
 
 export interface PlatformCoverage {
   slug: string;
@@ -348,12 +324,6 @@ export interface DownloadJob {
   error: string | null;
 }
 
-export interface ProbeFinding {
-  question: string;
-  answer: string;
-  evidence: string[];
-}
-
 // ---------- Channels ----------
 
 export interface IpcContract {
@@ -364,8 +334,6 @@ export interface IpcContract {
   'account:overview': { request: undefined; response: AccountOverview };
 
   'library:platforms': { request: undefined; response: PlatformSummary[] };
-  'library:roms': { request: RomQuery; response: RomPage };
-  'library:romAssets': { request: number; response: RomAssets };
   /** Every game of a platform, a collection or a search. */
   'library:gridRoms': { request: GridSource; response: RomSummary[] };
   'library:recentlyAdded': { request: undefined; response: RomSummary[] };
@@ -424,8 +392,6 @@ export interface IpcContract {
   'app:openLogsFolder': { request: undefined; response: undefined };
   /** Opens one of a fixed set of pages outside the launcher. */
   'app:openLink': { request: ExternalLink; response: undefined };
-
-  'debug:apiProbe': { request: undefined; response: ProbeFinding[] };
 }
 
 /** Pushed from main to renderer, without a request. */
@@ -485,8 +451,6 @@ export interface LauncherApi {
   account: { overview: Call<'account:overview'> };
   library: {
     platforms: Call<'library:platforms'>;
-    roms: Call<'library:roms'>;
-    romAssets: Call<'library:romAssets'>;
     gridRoms: Call<'library:gridRoms'>;
     recentlyAdded: Call<'library:recentlyAdded'>;
     collections: Call<'library:collections'>;
@@ -544,5 +508,4 @@ export interface LauncherApi {
     openLink: Call<'app:openLink'>;
     onOnlineChanged: Subscribe<'app:onlineChanged'>;
   };
-  debug: { apiProbe: Call<'debug:apiProbe'> };
 }

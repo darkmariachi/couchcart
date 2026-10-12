@@ -18,12 +18,8 @@ import type {
   PlatformCoverage,
   PlatformSummary,
   PlayRequest,
-  ProbeFinding,
   RetroArchStatus,
-  RomAssets,
   RomDetail,
-  RomPage,
-  RomQuery,
   RomSummary,
   ServerInfo,
   SettingsPatch,
@@ -32,6 +28,7 @@ import type {
   SyncAllResult,
   SyncReport,
 } from '../shared/ipc';
+import { accountDirFor, adoptLegacyData, signedOutDir } from './accounts';
 import { cacheSizeBytes } from './downloads/cacheJanitor';
 import { DownloadManager } from './downloads/downloadManager';
 import {
@@ -59,7 +56,6 @@ import {
 import { CredentialStore, type Encryptor } from './romm/credentials';
 import { LauncherError } from './errors';
 import { NetworkError, NotAuthenticatedError, RommApiError } from './romm/errors';
-import { runApiProbe } from './romm/probe';
 import { SaveBackups } from './saves/backups';
 import {
   findImportCandidates,
@@ -109,10 +105,13 @@ const PENDING_SYNC_INTERVAL_MS = 2 * 60_000;
 export class LauncherApp {
   private readonly settings: SettingsStore;
   private readonly credentials: CredentialStore;
-  private readonly syncStore: SyncStore;
+  // Saves, states, backups and sync records belong to the signed-in account; these are
+  // replaced when a different account signs in.
+  private syncStore: SyncStore;
+  private saveSync: SaveSyncService;
+  private accountDir: string;
   private readonly paths: DataPaths;
   private readonly downloads: DownloadManager;
-  private readonly saveSync: SaveSyncService;
   private readonly launcher: LaunchService;
   private readonly controllers: ControllerDetector;
   private connection: Connection | null = null;
@@ -125,23 +124,26 @@ export class LauncherApp {
     const { dataDir } = options;
     this.settings = new SettingsStore(join(dataDir, 'settings.json'), options.hostname);
     this.credentials = new CredentialStore(join(dataDir, 'credentials.bin'), options.encryptor);
-    this.paths = new DataPaths(dataDir, () => this.settings.get().cacheDir);
-    this.syncStore = new SyncStore(join(dataDir, 'sync.db'));
+    this.paths = new DataPaths(
+      dataDir,
+      () => this.settings.get().cacheDir,
+      () => this.accountDir,
+    );
+
+    const saved = this.settings.get();
+    const scope = this.openAccountScope(
+      saved.serverUrl && saved.username
+        ? this.prepareAccountDir(saved.serverUrl, saved.username)
+        : signedOutDir(dataDir),
+    );
+    this.accountDir = scope.dir;
+    this.syncStore = scope.store;
+    this.saveSync = scope.saveSync;
 
     this.downloads = new DownloadManager(
       () => this.requireConnection().client,
       options.onDownloadsChanged,
     );
-    this.saveSync = new SaveSyncService({
-      getRemote: () => this.requireConnection().client,
-      store: this.syncStore,
-      backups: new SaveBackups(
-        join(dataDir, 'save-backups'),
-        () => this.settings.get().saveBackupCount,
-      ),
-      paths: this.paths,
-      getDeviceId: () => this.ensureDeviceId(),
-    });
     this.launcher = new LaunchService({
       getRomSource: () => ({
         getRom: (id) => this.getRomRecord(id),
@@ -162,9 +164,42 @@ export class LauncherApp {
       join(dataDir, 'retroarch'),
     );
 
-    const { serverUrl, username } = this.settings.get();
-    if (serverUrl) this.connection = this.connect(serverUrl);
-    if (serverUrl && username) this.syncStore.bindAccount(accountKey(serverUrl, username));
+    if (saved.serverUrl) this.connection = this.connect(saved.serverUrl);
+  }
+
+  /** The account's folder, adopting data from before accounts had folders of their own. */
+  private prepareAccountDir(serverUrl: string, username: string): string {
+    const dir = accountDirFor(this.options.dataDir, serverUrl, username);
+    if (adoptLegacyData(this.options.dataDir, dir)) {
+      log.info('Moved existing saves and sync records into the account folder');
+    }
+    return dir;
+  }
+
+  private openAccountScope(dir: string) {
+    const store = new SyncStore(join(dir, 'sync.db'));
+    const saveSync = new SaveSyncService({
+      getRemote: () => this.requireConnection().client,
+      store,
+      backups: new SaveBackups(
+        join(dir, 'save-backups'),
+        () => this.settings.get().saveBackupCount,
+      ),
+      paths: this.paths,
+      getDeviceId: () => this.ensureDeviceId(),
+    });
+    return { dir, store, saveSync };
+  }
+
+  /** Points saves, states and sync records at the account that just signed in. */
+  private switchAccount(serverUrl: string, username: string): void {
+    const dir = this.prepareAccountDir(serverUrl, username);
+    if (dir === this.accountDir) return;
+    this.syncStore.close();
+    const scope = this.openAccountScope(dir);
+    this.accountDir = scope.dir;
+    this.syncStore = scope.store;
+    this.saveSync = scope.saveSync;
   }
 
   /** Background work that should not run in tests: controller detection, upload retries. */
@@ -216,7 +251,7 @@ export class LauncherApp {
       username: user.username,
       deviceId: sameAccount ? previous.deviceId : null,
     });
-    this.syncStore.bindAccount(accountKey(serverUrl, user.username));
+    this.switchAccount(serverUrl, user.username);
     this.setOnline(true);
     return this.status();
   }
@@ -293,23 +328,6 @@ export class LauncherApp {
         .map(toPlatformSummary),
     );
     return [...platforms].sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  async listRoms(query: RomQuery): Promise<RomPage> {
-    const fetchPage = async () => {
-      const page = await this.requireConnection().client.listRoms(query);
-      return { items: page.items.map(toListedRom), total: page.total ?? page.items.length };
-    };
-    // Search results are not worth remembering; plain pages are (the home screen shelves).
-    const page = query.search
-      ? await fetchPage()
-      : await this.cached(`roms:${query.platformId}:${query.offset}:${query.limit}`, fetchPage);
-    return {
-      items: await this.withLocalFacts(page.items),
-      total: page.total,
-      offset: query.offset,
-      limit: query.limit,
-    };
   }
 
   /** Every game of a platform. The grid sorts, filters and searches this list locally. */
@@ -485,17 +503,6 @@ export class LauncherApp {
         candidates: resolution.found ? [] : resolution.candidates,
       };
     });
-  }
-
-  async getRomAssets(romId: number): Promise<RomAssets> {
-    const { client } = this.requireConnection();
-    const [saves, states] = await Promise.all([client.listSaves(romId), client.listStates(romId)]);
-    return { saves, states };
-  }
-
-  runApiProbe(): Promise<ProbeFinding[]> {
-    const { client, auth } = this.requireConnection();
-    return runApiProbe(client, auth);
   }
 
   /** Lets the cover image handler fetch with the current session. */
@@ -962,10 +969,6 @@ const EXTERNAL_LINKS: Record<ExternalLink, string> = {
   'retroarch-steam': 'steam://store/1118310',
   'retroarch-website': 'https://www.retroarch.com/?page=platforms',
 };
-
-function accountKey(serverUrl: string, username: string): string {
-  return `${serverUrl}|${username}`;
-}
 
 /** Installed cores that can run a platform, in order of preference. */
 function coreOptionsFor(slug: string, fsSlug: string, installed: Set<string>): string[] {

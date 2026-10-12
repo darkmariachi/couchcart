@@ -25,6 +25,8 @@ export class DataPaths {
   constructor(
     private readonly dataDir: string,
     private readonly getCacheDirOverride: () => string | null,
+    /** Saves and states are per account; games, covers and the launch config are shared. */
+    private readonly getAccountDir: () => string = () => dataDir,
   ) {}
 
   get romCacheDir(): string {
@@ -36,11 +38,11 @@ export class DataPaths {
   }
 
   savesDir(platformSlug: string): string {
-    return join(this.dataDir, 'saves', safeSegment(platformSlug));
+    return join(this.getAccountDir(), 'saves', safeSegment(platformSlug));
   }
 
   statesDir(platformSlug: string): string {
-    return join(this.dataDir, 'states', safeSegment(platformSlug));
+    return join(this.getAccountDir(), 'states', safeSegment(platformSlug));
   }
 
   get launchConfigFile(): string {

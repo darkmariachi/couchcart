@@ -34,8 +34,6 @@ const api: LauncherApi = {
   account: { overview: call('account:overview') },
   library: {
     platforms: call('library:platforms'),
-    roms: call('library:roms'),
-    romAssets: call('library:romAssets'),
     gridRoms: call('library:gridRoms'),
     recentlyAdded: call('library:recentlyAdded'),
     collections: call('library:collections'),
@@ -92,7 +90,6 @@ const api: LauncherApi = {
     openLink: call('app:openLink'),
     onOnlineChanged: subscribe('app:onlineChanged'),
   },
-  debug: { apiProbe: call('debug:apiProbe') },
 };
 
 contextBridge.exposeInMainWorld('romm', api);

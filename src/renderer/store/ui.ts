@@ -13,8 +13,7 @@ export type Route =
   | { name: 'game'; romId: number }
   | { name: 'settings' }
   | { name: 'downloads' }
-  | { name: 'account' }
-  | { name: 'debug' };
+  | { name: 'account' };
 
 interface StackEntry {
   route: Route;

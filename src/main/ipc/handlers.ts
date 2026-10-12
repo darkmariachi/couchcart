@@ -28,13 +28,6 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
   'account:overview': noRequest,
 
   'library:platforms': noRequest,
-  'library:roms': z.object({
-    platformId: z.number().int().positive(),
-    search: z.string().max(200).optional(),
-    offset: z.number().int().min(0),
-    limit: z.number().int().min(1).max(200),
-  }),
-  'library:romAssets': romId,
   'library:gridRoms': z.discriminatedUnion('type', [
     z.object({ type: z.literal('platform'), platformId: romId }),
     z.object({
@@ -113,8 +106,6 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
   'app:copyLogs': noRequest,
   'app:openLogsFolder': noRequest,
   'app:openLink': z.enum(['retroarch-steam', 'retroarch-website']),
-
-  'debug:apiProbe': noRequest,
 };
 
 type Handlers = {
@@ -133,8 +124,6 @@ export function registerIpcHandlers(
     'account:overview': () => app.getAccountOverview(),
 
     'library:platforms': () => app.listPlatforms(),
-    'library:roms': (query) => app.listRoms(query),
-    'library:romAssets': (id) => app.getRomAssets(id),
     'library:gridRoms': (source) => app.listGridRoms(source),
     'library:recentlyAdded': () => app.listRecentlyAdded(),
     'library:collections': () => app.listCollections(),
@@ -180,8 +169,6 @@ export function registerIpcHandlers(
     'app:copyLogs': () => app.copyLogs(),
     'app:openLogsFolder': () => app.openLogsFolder(),
     'app:openLink': (link) => app.openLink(link),
-
-    'debug:apiProbe': () => app.runApiProbe(),
   };
 
   for (const channel of Object.keys(handlers) as IpcChannel[]) {
