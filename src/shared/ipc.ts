@@ -273,6 +273,15 @@ export interface RetroArchStatus {
   canInstallCores: boolean;
 }
 
+/** Whether the launcher is, or can be, in Steam's library as a non-Steam game. */
+export interface SteamShortcutStatus {
+  /** Steam is installed and has been signed in to on this PC. */
+  installed: boolean;
+  running: boolean;
+  /** The launcher is already in Steam's list of non-Steam games. */
+  added: boolean;
+}
+
 /** Progress of a RetroArch or core download the user asked for. */
 export interface SetupProgress {
   /** What is being fetched: "RetroArch" or a core's name. */
@@ -447,6 +456,10 @@ export interface IpcContract {
   'setup:importSaves': { request: undefined; response: number };
   'setup:complete': { request: undefined; response: SetupStatus };
 
+  'steam:status': { request: undefined; response: SteamShortcutStatus };
+  /** Adds the launcher to Steam with its artwork. Steam must be closed, or `restartSteam` set. */
+  'steam:add': { request: { restartSteam: boolean }; response: SteamShortcutStatus };
+
   'app:online': { request: undefined; response: boolean };
   'app:quit': { request: undefined; response: undefined };
   'app:toggleFullscreen': { request: undefined; response: undefined };
@@ -542,6 +555,7 @@ export interface LauncherApi {
     /** Each `on...` returns a function that removes the listener. */
     onStateChanged: Subscribe<'game:stateChanged'>;
   };
+  steam: { status: Call<'steam:status'>; add: Call<'steam:add'> };
   downloads: {
     list: Call<'downloads:list'>;
     cancel: Call<'downloads:cancel'>;

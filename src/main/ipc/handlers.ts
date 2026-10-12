@@ -63,6 +63,9 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
   'game:setCore': z.object({ romId, core: coreName.nullable() }),
   'game:setFavorite': z.object({ romId, favorite: z.boolean() }),
 
+  'steam:status': noRequest,
+  'steam:add': z.object({ restartSteam: z.boolean() }),
+
   'downloads:list': noRequest,
   'downloads:cancel': romId,
   'downloads:clearFinished': noRequest,
@@ -144,6 +147,8 @@ export function registerIpcHandlers(
     'library:coreCoverage': () => app.getCoreCoverage(),
 
     'retroarch:status': () => app.getRetroArchStatus(),
+    'steam:status': () => app.getSteamShortcutStatus(),
+    'steam:add': (request) => app.addToSteam(request),
     'retroarch:setUp': () => app.setUpRetroArch(),
     'retroarch:installMissingCores': () => app.installMissingCores(),
     'game:play': (request) => app.play(request),

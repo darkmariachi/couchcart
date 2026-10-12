@@ -7,6 +7,7 @@ import type {
   AccountOverview,
   CoreInstallResult,
   SetupProgress,
+  SteamShortcutStatus,
   DiscoveredServer,
   ExternalLink,
   AuthStatus,
@@ -57,7 +58,20 @@ import {
   setUpRetroArch,
   type Extract,
 } from './launcher/emulatorSetup';
-import { locateRetroArch, type LocateOptions, type RetroArchInstall } from './launcher/retroarch';
+import {
+  findSteamRoots,
+  locateRetroArch,
+  type LocateOptions,
+  type RetroArchInstall,
+} from './launcher/retroarch';
+import {
+  addToSteam,
+  getSteamShortcutStatus,
+  isSteamRunning,
+  startSteam,
+  stopSteam,
+  type SteamDeps,
+} from './steam/addToSteam';
 import type { CoverSource } from './library/coverProtocol';
 import { getLogFile, log, readRecentLog } from './logging/logger';
 import { DataPaths, safeSegment } from './paths';
@@ -106,6 +120,8 @@ export interface LauncherAppOptions {
   sevenZipPath?: string;
   /** Replaces the real unpacking, for tests. */
   extract?: Extract;
+  /** How this copy of the launcher is started, and its Steam artwork; absent in tests. */
+  steam?: Pick<SteamDeps, 'shortcut' | 'artworkDir'> & Partial<SteamDeps>;
   /** Things only the Electron shell can do. */
   shell: {
     choosePath: (kind: 'directory' | 'file', startIn: string) => Promise<string | null>;
@@ -606,6 +622,25 @@ export class LauncherApp {
 
   getRetroArchStatus(): Promise<RetroArchStatus> {
     return this.launcher.getRetroArchStatus();
+  }
+
+  private get steamDeps(): SteamDeps {
+    const { steam } = this.options;
+    if (!steam) throw new LauncherError('internal', 'Steam is not available in this build.');
+    return { findSteamRoots, isSteamRunning, stopSteam, startSteam, ...steam };
+  }
+
+  async getSteamShortcutStatus(): Promise<SteamShortcutStatus> {
+    if (!this.options.steam) return { installed: false, running: false, added: false };
+    return getSteamShortcutStatus(this.steamDeps);
+  }
+
+  /** Puts the launcher in Steam's library as a non-Steam game, with its artwork. */
+  addToSteam(request: { restartSteam: boolean }): Promise<SteamShortcutStatus> {
+    if (this.launcher.isBusy) {
+      throw new LauncherError('busy', 'A game is starting or running.');
+    }
+    return addToSteam(this.steamDeps, request);
   }
 
   /** Where RetroArch goes when the launcher downloads it. */

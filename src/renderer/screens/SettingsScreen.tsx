@@ -10,6 +10,7 @@ import type {
   SettingsView,
 } from '../../shared/ipc';
 import { errorMessage, unwrap } from '../api';
+import { AddToSteam } from '../components/AddToSteam';
 import { Focusable } from '../components/Focusable';
 import { Icon } from '../components/Icon';
 import { OnScreenKeyboard } from '../components/OnScreenKeyboard';
@@ -238,6 +239,7 @@ export function SettingsScreen() {
               onPress={() => update.mutate({ launcherFullscreen: !view.launcherFullscreen })}
             />
             <LogRows />
+            <AddToSteam asRow />
             <p className={ui.note}>
               Signed in to {view.serverUrl ?? 'no server'} as {view.username ?? 'nobody'}. Sign out
               from the menu.

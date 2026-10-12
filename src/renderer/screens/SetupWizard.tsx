@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AuthStatus } from '../../shared/ipc';
 import { errorMessage, unwrap } from '../api';
+import { AddToSteam } from '../components/AddToSteam';
 import { Field } from '../components/Field';
 import { Focusable } from '../components/Focusable';
 import { Screen } from '../components/Screen';
@@ -411,6 +412,7 @@ function DoneStep() {
         </Focusable>
       </div>
       {complete.isError && <p className={ui.error}>{errorMessage(complete.error)}</p>}
+      <AddToSteam />
     </>
   );
 }

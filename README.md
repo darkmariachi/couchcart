@@ -81,6 +81,7 @@ has not been tried.
 | RetroArch from Steam or a standalone install (Windows)       | Works                              |
 | RetroArch and cores downloaded by the launcher (Windows)     | Works                              |
 | Running from Steam Big Picture                               | Works                              |
+| Adding itself to Steam with artwork                          | Built; not yet tested with Steam   |
 | Signing in with a code                                       | Built; approval not yet tested     |
 | Controllers with a RetroArch the launcher downloaded         | Built; not yet tested with a pad   |
 | Multi-disc games                                             | Built; not yet tested with a game  |
@@ -257,6 +258,17 @@ RetroArch menu.
 
 ## Adding it to Steam
 
+The quick way: choose **Add Couchcart to Steam** on the last step of the setup wizard, or later
+under Settings → This device. Couchcart then appears in your Steam library and Big Picture as a
+non-Steam game, with its cover, background and logo already set.
+
+Steam only reads its list of non-Steam games when it starts, so if Steam is open the button reads
+"Close Steam and add Couchcart": Steam is closed, the entry is added, and Steam is started again.
+Your other non-Steam games are left as they are, and the file that was changed is first copied to
+`shortcuts.vdf.couchcart-backup` next to it. Run it again after moving or reinstalling Couchcart.
+
+To do it by hand instead:
+
 1. In Steam: **Games → Add a Non-Steam Game to My Library → Browse**, and pick the launcher. The
    installer puts it in `%LOCALAPPDATA%\Programs\Couchcart\Couchcart.exe`.
 2. Right-click the new entry → **Properties**. Set the name to "Couchcart" and, if you want to
@@ -265,7 +277,8 @@ RetroArch menu.
 
 ### Artwork
 
-Steam does not fetch artwork for non-Steam games, so Couchcart comes with its own. The files are
+"Add Couchcart to Steam" sets the artwork for you. If you added the launcher by hand: Steam does
+not fetch artwork for non-Steam games, so Couchcart comes with its own. The files are
 in the `resourcessteam-art` folder next to the program (for the installer,
 `%LOCALAPPDATA%ProgramsCouchcart
 esourcessteam-art`), and in

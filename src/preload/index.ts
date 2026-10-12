@@ -60,6 +60,7 @@ const api: LauncherApi = {
     setFavorite: call('game:setFavorite'),
     onStateChanged: subscribe('game:stateChanged'),
   },
+  steam: { status: call('steam:status'), add: call('steam:add') },
   downloads: {
     list: call('downloads:list'),
     cancel: call('downloads:cancel'),

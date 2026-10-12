@@ -28,7 +28,7 @@ export function parseSteamLibraryFolders(vdf: string): string[] {
   );
 }
 
-async function findSteamRoots(): Promise<string[]> {
+export async function findSteamRoots(): Promise<string[]> {
   if (process.platform === 'win32') {
     const roots = [join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Steam')];
     try {

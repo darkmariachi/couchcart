@@ -1,6 +1,6 @@
 import { existsSync, renameSync } from 'node:fs';
 import { hostname } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   BrowserWindow,
@@ -71,6 +71,27 @@ function sevenZipPath(): string {
   if (app.isPackaged) return join(process.resourcesPath, 'bin', program);
   const folder = process.platform === 'win32' ? 'win' : 'linux';
   return join(app.getAppPath(), 'node_modules', '7zip-bin', folder, 'x64', program);
+}
+
+/** How Steam should start this copy of the launcher, and where its artwork is. */
+function steamShortcut() {
+  // The portable build and the AppImage unpack themselves somewhere temporary on every
+  // start; Steam has to point at the file the user keeps, not at that copy.
+  const exe =
+    process.env['PORTABLE_EXECUTABLE_FILE'] ?? process.env['APPIMAGE'] ?? app.getPath('exe');
+  const artworkDir = app.isPackaged
+    ? join(process.resourcesPath, 'steam-art')
+    : join(app.getAppPath(), 'assets', 'steam');
+  return {
+    shortcut: {
+      name: APP_NAME,
+      exe,
+      startDir: dirname(exe),
+      // Windows takes the icon from the program itself; elsewhere an image is needed.
+      icon: process.platform === 'win32' ? exe : join(artworkDir, 'icon.png'),
+    },
+    artworkDir,
+  };
 }
 
 function isTrustedSender(event: IpcMainInvokeEvent): boolean {
@@ -160,6 +181,7 @@ if (!app.requestSingleInstanceLock()) {
       onOnlineChanged: (online) => send('app:onlineChanged', online),
       onSetupProgress: (progress) => send('retroarch:setupProgress', progress),
       sevenZipPath: sevenZipPath(),
+      steam: steamShortcut(),
       shell: {
         choosePath: async (kind, startIn) => {
           if (!mainWindow) return null;

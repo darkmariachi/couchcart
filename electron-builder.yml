@@ -19,6 +19,8 @@ asar: true
 extraResources:
   - from: assets/steam
     to: steam-art
+  - from: build/icon.png
+    to: steam-art/icon.png
 
 win:
   icon: build/icon.png
