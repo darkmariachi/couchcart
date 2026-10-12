@@ -1,31 +1,44 @@
 import type { spawn as nodeSpawn } from 'node:child_process';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { LaunchState, RetroArchStatus, SyncReport } from '../../shared/ipc';
-import { downloadRom, isDownloaded, type RomContentSource } from '../downloads/romDownloader';
+import type {
+  LaunchBlock,
+  LaunchState,
+  PlayRequest,
+  RetroArchStatus,
+  SyncReport,
+} from '../../shared/ipc';
+import { enforceCachePolicy } from '../downloads/cacheJanitor';
+import type { DownloadManager } from '../downloads/downloadManager';
+import {
+  isPlanDownloaded,
+  planRomFiles,
+  removeFromCache,
+  resolveLaunchTarget,
+  touchPlan,
+  type RomFilePlan,
+  type RomFilesSource,
+} from '../downloads/romFiles';
 import { LauncherError } from '../errors';
 import { writeFileAtomicSync } from '../fs/atomic';
 import { toIpcError } from '../ipc/errors';
 import { log } from '../logging/logger';
 import type { DataPaths } from '../paths';
 import type { Settings } from '../settings/schema';
+import { findMissingBios } from './bios';
 import { DEFAULT_CORES, coreFileExtension, resolveCore, type CoreMap } from './cores';
 import { buildLaunchArgs, buildLaunchConfig } from './launchConfig';
 import type { LocateOptions, RetroArchInstall } from './retroarch';
 
 /** The parts of a RomM ROM record the launcher needs. */
-export interface LaunchableRom {
-  id: number;
-  fs_name: string;
-  fs_size_bytes: number;
-  md5_hash: string | null;
-  platform_slug: string;
+export interface LaunchableRom extends RomFilesSource {
+  name: string | null;
   platform_fs_slug: string;
   platform_display_name: string;
-  has_simple_single_file: boolean;
 }
 
-export interface RomSource extends RomContentSource {
+export interface RomSource {
+  /** May answer from the local copy of the library when the server is unreachable. */
   getRom(id: number): Promise<LaunchableRom>;
   markPlayed(id: number): Promise<void>;
 }
@@ -35,12 +48,16 @@ export interface LaunchServiceDeps {
   getRomSource: () => RomSource;
   getSettings: () => Settings;
   paths: DataPaths;
+  downloads: DownloadManager;
   locateRetroArch: (options: LocateOptions) => Promise<RetroArchInstall | null>;
   listInstalledCores: (coresDir: string) => Set<string>;
   spawn: typeof nodeSpawn;
   onStateChanged: (state: LaunchState) => void;
   /** Brings saves in line with the server. Must not throw; problems go in the report. */
   syncSaves: (rom: LaunchableRom, emulator: string) => Promise<SyncReport>;
+  /** Extra RetroArch settings that put the connected controllers on player ports. */
+  getControllerSettings: () => Promise<Record<string, string>>;
+  findMissingBios?: typeof findMissingBios;
   defaultCores?: CoreMap;
   now?: () => number;
 }
@@ -53,6 +70,11 @@ export class LaunchService {
 
   getState(): LaunchState {
     return this.state;
+  }
+
+  /** True while a game is being prepared or is running. */
+  get isBusy(): boolean {
+    return ['downloading', 'starting', 'syncing', 'running'].includes(this.state.phase);
   }
 
   async getRetroArchStatus(): Promise<RetroArchStatus> {
@@ -77,29 +99,56 @@ export class LaunchService {
     };
   }
 
-  /** Resolves once RetroArch is running. Its exit is reported through onStateChanged. */
-  async play(romId: number): Promise<void> {
+  locateInstall(): Promise<RetroArchInstall | null> {
+    const { executablePath, coresDir } = this.deps.getSettings().retroarch;
+    return this.deps.locateRetroArch({ executablePath, coresDir });
+  }
+
+  /**
+   * Resolves once RetroArch is running, or once the launch stops at a decision the user
+   * has to make (state `blocked`). The game's exit is reported through onStateChanged.
+   */
+  async play(request: PlayRequest): Promise<void> {
     if (this.isBusy)
       throw new LauncherError('busy', 'Another game is already starting or running.');
 
+    const { romId } = request;
     this.setState({ phase: 'starting', romId });
     try {
-      const source = this.deps.getRomSource();
-      const rom = await source.getRom(romId);
-      this.requireSingleFile(rom);
+      const rom = await this.deps.getRomSource().getRom(romId);
 
       // Check everything RetroArch needs before spending time on a download.
       const install = await this.requireRetroArch();
       const core = this.requireCore(rom, install);
 
-      const romPath = await this.ensureDownloaded(source, rom);
+      if (!request.ignoreMissingBios) {
+        const check = this.deps.findMissingBios ?? findMissingBios;
+        const missing = await check([rom.platform_slug, rom.platform_fs_slug], install.systemDir);
+        if (missing.length > 0) {
+          this.block(romId, {
+            type: 'bios',
+            platformName: rom.platform_display_name,
+            missing,
+            systemDir: install.systemDir,
+          });
+          return;
+        }
+      }
+
+      const plan = planRomFiles(rom, this.deps.paths);
+      await this.ensureDownloaded(rom, plan);
 
       // Pull newer saves from other PCs before the game reads them.
       this.setState({ phase: 'syncing', romId, stage: 'before-launch' });
-      await this.deps.syncSaves(rom, emulatorName(core));
-      this.setState({ phase: 'starting', romId });
+      const sync = await this.deps.syncSaves(rom, emulatorName(core));
+      const conflicts = sync.items.filter((item) => item.outcome === 'conflict');
+      if (conflicts.length > 0 && !request.ignoreConflicts) {
+        this.block(romId, { type: 'conflict', conflicts });
+        return;
+      }
 
-      await this.startRetroArch(rom, install, core, romPath);
+      this.setState({ phase: 'starting', romId });
+      await this.startRetroArch(rom, install, core, plan);
     } catch (error) {
       log.warn(`Launching ROM ${romId} failed`, error);
       this.setState({ phase: 'failed', romId, error: toIpcError(error) });
@@ -107,70 +156,61 @@ export class LaunchService {
     }
   }
 
-  /** Puts a game in the cache without starting it. */
-  async download(romId: number): Promise<void> {
-    if (this.isBusy)
-      throw new LauncherError('busy', 'Another game is already starting or running.');
-
-    this.setState({ phase: 'starting', romId });
-    try {
-      const source = this.deps.getRomSource();
-      const rom = await source.getRom(romId);
-      this.requireSingleFile(rom);
-      await this.ensureDownloaded(source, rom);
-      this.setState({ phase: 'idle' });
-    } catch (error) {
-      log.warn(`Downloading ROM ${romId} failed`, error);
-      this.setState({ phase: 'failed', romId, error: toIpcError(error) });
-      throw error;
-    }
+  /** Adds a game to the download queue without starting it. Returns immediately. */
+  async queueDownload(romId: number): Promise<void> {
+    const rom = await this.deps.getRomSource().getRom(romId);
+    const plan = planRomFiles(rom, this.deps.paths);
+    if (await isPlanDownloaded(plan)) return;
+    // Failures show up on the job in the downloads list rather than here.
+    void this.deps.downloads
+      .enqueue({ romId, name: displayName(rom), files: plan.downloads })
+      .catch(() => undefined);
   }
 
   /** Removes a game from the cache. Saves and states are kept. */
   async deleteLocal(romId: number): Promise<void> {
-    if (this.isBusy) throw new LauncherError('busy', 'A game is starting or running.');
+    if (this.isBusy && 'romId' in this.state && this.state.romId === romId) {
+      throw new LauncherError('busy', 'This game is starting or running.');
+    }
     const rom = await this.deps.getRomSource().getRom(romId);
-    const romPath = this.deps.paths.romFile(rom.platform_slug, rom.fs_name);
-    await Promise.all([rm(romPath, { force: true }), rm(`${romPath}.part`, { force: true })]);
+    this.deps.downloads.cancel(romId);
+    await removeFromCache(planRomFiles(rom, this.deps.paths));
   }
 
-  private requireSingleFile(rom: LaunchableRom): void {
-    if (!rom.has_simple_single_file) {
-      throw new LauncherError(
-        'unsupported_rom',
-        'Multi-file and multi-disc games are not supported yet.',
-      );
+  async isDownloaded(rom: RomFilesSource): Promise<boolean> {
+    try {
+      return await isPlanDownloaded(planRomFiles(rom, this.deps.paths));
+    } catch {
+      return false;
     }
   }
 
-  /** Returns the path of the ROM in the cache, downloading it first when needed. */
-  private async ensureDownloaded(source: RomSource, rom: LaunchableRom): Promise<string> {
-    const romPath = this.deps.paths.romFile(rom.platform_slug, rom.fs_name);
-    const download = {
-      romId: rom.id,
-      fileName: rom.fs_name,
-      sizeBytes: rom.fs_size_bytes,
-      md5: rom.md5_hash,
-      destination: romPath,
-    };
-    if (await isDownloaded(download)) return romPath;
+  private block(romId: number, block: LaunchBlock): void {
+    this.setState({ phase: 'blocked', romId, block });
+  }
 
+  private async ensureDownloaded(rom: LaunchableRom, plan: RomFilePlan): Promise<void> {
+    if (await isPlanDownloaded(plan)) return;
+
+    const totalBytes = plan.downloads.reduce((total, file) => total + file.sizeBytes, 0);
     const progress = { phase: 'downloading', romId: rom.id } as const;
-    this.setState({ ...progress, receivedBytes: 0, totalBytes: rom.fs_size_bytes });
-    await downloadRom(source, download, {
-      onProgress: (update) => this.setState({ ...progress, ...update }),
-    });
-    this.setState({ phase: 'starting', romId: rom.id });
-    return romPath;
-  }
+    this.setState({ ...progress, receivedBytes: 0, totalBytes });
 
-  private get isBusy(): boolean {
-    return ['downloading', 'starting', 'syncing', 'running'].includes(this.state.phase);
-  }
-
-  locateInstall(): Promise<RetroArchInstall | null> {
-    const { executablePath, coresDir } = this.deps.getSettings().retroarch;
-    return this.deps.locateRetroArch({ executablePath, coresDir });
+    // The queue reports progress for every job; mirror this game's into the launch state.
+    const timer = setInterval(() => {
+      const job = this.deps.downloads.list().find((candidate) => candidate.romId === rom.id);
+      if (job && this.state.phase === 'downloading') {
+        this.setState({ ...progress, receivedBytes: job.receivedBytes, totalBytes });
+      }
+    }, 250);
+    try {
+      await this.deps.downloads.enqueue(
+        { romId: rom.id, name: displayName(rom), files: plan.downloads },
+        { priority: true },
+      );
+    } finally {
+      clearInterval(timer);
+    }
   }
 
   private async requireRetroArch(): Promise<RetroArchInstall> {
@@ -178,7 +218,7 @@ export class LaunchService {
     if (install) return install;
     throw new LauncherError(
       'retroarch_not_found',
-      'RetroArch was not found. Install it, or set its location in settings.',
+      'RetroArch was not found. Install it, or set its location in Settings.',
     );
   }
 
@@ -197,7 +237,7 @@ export class LaunchService {
     if (resolution.candidates.length === 0) {
       throw new LauncherError(
         'core_missing',
-        `No RetroArch core is mapped to ${platform} yet. Choose one in settings.`,
+        `No RetroArch core is set up for ${platform} yet. Choose one in Settings, under Cores.`,
       );
     }
     const wanted = resolution.candidates.map((name) => name.replace(/_libretro$/, '')).join(', ');
@@ -215,7 +255,7 @@ export class LaunchService {
     rom: LaunchableRom,
     install: RetroArchInstall,
     core: string,
-    romPath: string,
+    plan: RomFilePlan,
   ): Promise<void> {
     const { paths, spawn } = this.deps;
     const now = this.deps.now ?? Date.now;
@@ -227,7 +267,13 @@ export class LaunchService {
       mkdir(savesDir, { recursive: true }),
       mkdir(statesDir, { recursive: true }),
     ]);
-    writeFileAtomicSync(paths.launchConfigFile, buildLaunchConfig({ savesDir, statesDir }));
+    writeFileAtomicSync(
+      paths.launchConfigFile,
+      buildLaunchConfig({ savesDir, statesDir, extra: await this.deps.getControllerSettings() }),
+    );
+
+    const romPath = await resolveLaunchTarget(plan);
+    await touchPlan(plan);
 
     const args = buildLaunchArgs({
       corePath: join(install.coresDir, `${core}${coreFileExtension()}`),
@@ -269,18 +315,43 @@ export class LaunchService {
     child.once('exit', (exitCode) => {
       const playedSeconds = Math.round((now() - startedAt) / 1000);
       log.info(`RetroArch exited (code ${exitCode}) after ${playedSeconds}s`);
-      // RetroArch has closed its files, so whatever it wrote can go to the server now.
-      this.setState({ phase: 'syncing', romId: rom.id, stage: 'after-exit' });
-      void this.deps.syncSaves(rom, emulatorName(core)).then((sync) => {
-        this.setState({ phase: 'exited', romId: rom.id, exitCode, playedSeconds, sync });
-      });
+      void this.finishSession(rom, core, plan, exitCode, playedSeconds);
     });
+  }
+
+  private async finishSession(
+    rom: LaunchableRom,
+    core: string,
+    plan: RomFilePlan,
+    exitCode: number | null,
+    playedSeconds: number,
+  ): Promise<void> {
+    // RetroArch has closed its files, so whatever it wrote can go to the server now.
+    this.setState({ phase: 'syncing', romId: rom.id, stage: 'after-exit' });
+    const sync = await this.deps.syncSaves(rom, emulatorName(core));
+
+    try {
+      const removed = await enforceCachePolicy(
+        this.deps.paths.romCacheDir,
+        this.deps.getSettings().cache,
+        plan.rootPath,
+      );
+      if (removed.length > 0) log.info(`Cache policy removed ${removed.length} game(s)`);
+    } catch (error) {
+      log.warn('Could not apply the cache policy', error);
+    }
+
+    this.setState({ phase: 'exited', romId: rom.id, exitCode, playedSeconds, sync });
   }
 
   private setState(state: LaunchState): void {
     this.state = state;
     this.deps.onStateChanged(state);
   }
+}
+
+function displayName(rom: LaunchableRom): string {
+  return rom.name ?? rom.fs_name;
 }
 
 /** RomM labels saves with the core name without the libretro suffix. */

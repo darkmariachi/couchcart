@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const CURRENT_SETTINGS_VERSION = 4;
+export const CURRENT_SETTINGS_VERSION = 5;
 
 const retroarchSchema = z.object({
   /** Null means "auto-detect"; set it to pin a specific install. */
@@ -10,6 +10,8 @@ const retroarchSchema = z.object({
   fullscreen: z.boolean(),
   extraArgs: z.array(z.string()),
 });
+
+const gamepadCombo = z.enum(['keep', 'none', 'hold_start', 'hold_select', 'start_select', 'l3_r3']);
 
 export const settingsSchema = z.object({
   version: z.literal(CURRENT_SETTINGS_VERSION),
@@ -22,6 +24,16 @@ export const settingsSchema = z.object({
   /** How many backups to keep per game in `save-backups`. */
   saveBackupCount: z.number().int().min(1).max(1000),
   retroarch: retroarchSchema,
+  controllers: z.object({
+    /** Controller signatures in player order; unlisted controllers follow in detection order. */
+    playerOrder: z.array(z.string()),
+    menuCombo: gamepadCombo,
+    quitCombo: gamepadCombo,
+  }),
+  cache: z.object({
+    keep: z.enum(['always', 'limit', 'never']),
+    limitGb: z.number().min(1).max(100_000),
+  }),
   /** False until the first-run wizard has been finished. */
   setupComplete: z.boolean(),
   /** Whether the launcher window itself starts fullscreen. */
@@ -50,6 +62,13 @@ const V4_ADDITIONS = {
   launcherFullscreen: true,
 } satisfies Partial<Settings>;
 
+const V5_ADDITIONS = {
+  // Holding Start works on every controller, so there is always a way back to RetroArch's
+  // menu (and from there out of the game) without a keyboard.
+  controllers: { playerOrder: [], menuCombo: 'hold_start', quitCombo: 'keep' },
+  cache: { keep: 'limit', limitGb: 20 },
+} satisfies Partial<Settings>;
+
 export function defaultSettings(deviceName: string): Settings {
   return {
     version: CURRENT_SETTINGS_VERSION,
@@ -59,6 +78,7 @@ export function defaultSettings(deviceName: string): Settings {
     ...structuredClone(V2_ADDITIONS),
     ...V3_ADDITIONS,
     ...V4_ADDITIONS,
+    ...structuredClone(V5_ADDITIONS),
   };
 }
 
@@ -73,6 +93,8 @@ const MIGRATIONS: Record<number, (old: RawSettings) => RawSettings> = {
   // v4 added the setup wizard flag and launcher fullscreen (Milestone 4). Existing
   // installs see the wizard once too, because it now offers to import RetroArch saves.
   3: (v3) => ({ ...v3, ...V4_ADDITIONS, version: 4 }),
+  // v5 added controller assignment and cache retention (Milestone 5).
+  4: (v4) => ({ ...v4, ...structuredClone(V5_ADDITIONS), version: 5 }),
 };
 
 /**

@@ -1,6 +1,8 @@
 export interface LaunchConfigOptions {
   savesDir: string;
   statesDir: string;
+  /** Further settings, such as controller assignments. They cannot replace the ones above. */
+  extra?: Record<string, string>;
 }
 
 /**
@@ -8,8 +10,9 @@ export interface LaunchConfigOptions {
  * Only what the launcher must control is set, so video, audio and input settings stay the
  * user's.
  */
-export function buildLaunchConfig({ savesDir, statesDir }: LaunchConfigOptions): string {
+export function buildLaunchConfig({ savesDir, statesDir, extra }: LaunchConfigOptions): string {
   const settings: Record<string, string> = {
+    ...extra,
     savefile_directory: toConfigPath(savesDir),
     savestate_directory: toConfigPath(statesDir),
     // Without these RetroArch adds per-core or per-content subfolders, and the sync engine

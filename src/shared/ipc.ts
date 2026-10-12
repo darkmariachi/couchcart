@@ -6,6 +6,8 @@ type Schemas = components['schemas'];
 export type RommSave = Schemas['SaveSchema'];
 export type RommState = Schemas['StateSchema'];
 
+// ---------- Account and server ----------
+
 export interface ServerInfo {
   version: string;
 }
@@ -23,6 +25,8 @@ export interface LoginRequest {
   username: string;
   password: string;
 }
+
+// ---------- Library ----------
 
 export interface PlatformSummary {
   id: number;
@@ -43,8 +47,10 @@ export interface RomSummary {
   hasMultipleFiles: boolean;
   md5: string | null;
   createdAt: string;
-  /** Whether the ROM file is in the local cache. */
+  /** Whether the game's files are in the local cache. */
   downloaded: boolean;
+  /** Result of the last save sync on this PC; null when it never ran. */
+  syncStatus: SyncReport['status'] | null;
 }
 
 export interface RomDetail extends RomSummary {
@@ -54,32 +60,12 @@ export interface RomDetail extends RomSummary {
   genres: string[];
   coverLargePath: string | null;
   lastSync: SyncReport | null;
-}
-
-export interface PlatformCoverage {
-  slug: string;
-  name: string;
-  romCount: number;
-  /** The installed core that will run this platform, or null when none is. */
+  /** The core that will run this game, or null when none is installed. */
   core: string | null;
-  /** Cores that would work if installed; empty when the platform is not mapped at all. */
-  candidates: string[];
-}
-
-export interface SetupStatus {
-  complete: boolean;
-  deviceName: string;
-  cacheDir: string;
-  /** Free space on the cache folder's drive, when it can be determined. */
-  freeBytes: number | null;
-  fullscreen: boolean;
-}
-
-/** Saves found in RetroArch's own folders that match games in the library. */
-export interface ImportPreview {
-  saves: number;
-  states: number;
-  games: string[];
+  /** A core chosen for this game specifically; null means "use the platform's". */
+  coreOverride: string | null;
+  /** Installed cores that can run this platform. */
+  coreOptions: string[];
 }
 
 export interface RomQuery {
@@ -101,11 +87,113 @@ export interface RomAssets {
   states: RommState[];
 }
 
-export interface ProbeFinding {
-  question: string;
-  answer: string;
-  evidence: string[];
+export interface PlatformCoverage {
+  slug: string;
+  name: string;
+  romCount: number;
+  /** The installed core that will run this platform, or null when none is. */
+  core: string | null;
+  /** Cores that would work if installed; empty when the platform is not mapped at all. */
+  candidates: string[];
 }
+
+// ---------- Setup and settings ----------
+
+export interface SetupStatus {
+  complete: boolean;
+  deviceName: string;
+  cacheDir: string;
+  /** Free space on the cache folder's drive, when it can be determined. */
+  freeBytes: number | null;
+  fullscreen: boolean;
+}
+
+/** Saves found in RetroArch's own folders that match games in the library. */
+export interface ImportPreview {
+  saves: number;
+  states: number;
+  games: string[];
+}
+
+/** What happens to a downloaded game after you stop playing it. */
+export type CacheKeepMode = 'always' | 'limit' | 'never';
+
+/** `keep` leaves whatever is set in RetroArch itself untouched. */
+export type GamepadCombo =
+  'keep' | 'none' | 'hold_start' | 'hold_select' | 'start_select' | 'l3_r3';
+
+export interface PlatformCoreSetting {
+  slug: string;
+  name: string;
+  /** The core in use right now (override or default), or null when none is installed. */
+  core: string | null;
+  override: string | null;
+  /** Installed cores that can run this platform. */
+  options: string[];
+}
+
+export interface SettingsView {
+  serverUrl: string | null;
+  username: string | null;
+  deviceName: string;
+  saveBackupCount: number;
+  launcherFullscreen: boolean;
+  retroarch: {
+    /** Null means auto-detect. */
+    configuredPath: string | null;
+    detectedPath: string | null;
+    version: string | null;
+    /** Null means the install's own cores folder. */
+    configuredCoresDir: string | null;
+    coresDir: string | null;
+    fullscreen: boolean;
+    extraArgs: string;
+  };
+  cache: {
+    dir: string;
+    keep: CacheKeepMode;
+    limitGb: number;
+    usedBytes: number;
+    freeBytes: number | null;
+  };
+  controllers: {
+    menuCombo: GamepadCombo;
+    quitCombo: GamepadCombo;
+  };
+  platformCores: PlatformCoreSetting[];
+}
+
+/** Every field is optional: only what is present changes. */
+export interface SettingsPatch {
+  deviceName?: string;
+  saveBackupCount?: number;
+  launcherFullscreen?: boolean;
+  retroarchFullscreen?: boolean;
+  retroarchExtraArgs?: string;
+  /** Null returns to auto-detection. */
+  retroarchPath?: string | null;
+  coresDir?: string | null;
+  cacheKeep?: CacheKeepMode;
+  cacheLimitGb?: number;
+  menuCombo?: GamepadCombo;
+  quitCombo?: GamepadCombo;
+  /** `core: null` removes the override. */
+  platformCore?: { slug: string; core: string | null };
+}
+
+export type FolderSetting = 'cache' | 'retroarch' | 'cores';
+
+export interface ControllerInfo {
+  /** RetroArch's identity for the device: `vid:pid name`. */
+  signature: string;
+  name: string;
+  /** False for devices RetroArch has no button layout for (they are ignored). */
+  recognized: boolean;
+  /** Player number it will be in the next game, or null when ignored. */
+  player: number | null;
+}
+
+// ---------- RetroArch and launching ----------
 
 export interface RetroArchStatus {
   found: boolean;
@@ -118,6 +206,14 @@ export interface RetroArchStatus {
 
 export type SyncKind = 'save' | 'state';
 
+/** What is known about the two sides of a conflict, to help the user choose. */
+export interface ConflictDetail {
+  localModifiedAt: string | null;
+  serverUpdatedAt: string | null;
+  /** Name of the device that uploaded the server copy, when RomM knows it. */
+  serverDevice: string | null;
+}
+
 export interface SyncItemResult {
   kind: SyncKind;
   fileName: string;
@@ -125,6 +221,7 @@ export interface SyncItemResult {
   /** `conflict` means both versions were left untouched and the user has to choose. */
   outcome: 'done' | 'conflict' | 'failed';
   detail: string;
+  conflict?: ConflictDetail;
 }
 
 export interface SyncReport {
@@ -143,11 +240,32 @@ export interface ConflictResolution {
   keep: 'local' | 'server';
 }
 
+export interface SyncAllResult {
+  games: number;
+  synced: number;
+  conflicts: number;
+  failed: number;
+}
+
+/** Something the user has to decide before the game can start. */
+export type LaunchBlock =
+  | { type: 'conflict'; conflicts: SyncItemResult[] }
+  | { type: 'bios'; platformName: string; missing: string[]; systemDir: string };
+
+export interface PlayRequest {
+  romId: number;
+  /** Start with this PC's saves even though the server has different ones. */
+  ignoreConflicts?: boolean;
+  /** Start even though required BIOS files appear to be missing. */
+  ignoreMissingBios?: boolean;
+}
+
 export type LaunchState =
   | { phase: 'idle' }
   | { phase: 'downloading'; romId: number; receivedBytes: number; totalBytes: number }
   | { phase: 'starting'; romId: number }
   | { phase: 'syncing'; romId: number; stage: 'before-launch' | 'after-exit' }
+  | { phase: 'blocked'; romId: number; block: LaunchBlock }
   | { phase: 'running'; romId: number; core: string; startedAt: string }
   | {
       phase: 'exited';
@@ -158,11 +276,30 @@ export type LaunchState =
     }
   | { phase: 'failed'; romId: number; error: IpcErrorInfo };
 
+export interface DownloadJob {
+  romId: number;
+  name: string;
+  status: 'queued' | 'downloading' | 'done' | 'failed' | 'cancelled';
+  receivedBytes: number;
+  totalBytes: number;
+  bytesPerSecond: number;
+  error: string | null;
+}
+
+export interface ProbeFinding {
+  question: string;
+  answer: string;
+  evidence: string[];
+}
+
+// ---------- Channels ----------
+
 export interface IpcContract {
   'server:probe': { request: string; response: ServerInfo };
   'auth:status': { request: undefined; response: AuthStatus };
   'auth:login': { request: LoginRequest; response: AuthStatus };
   'auth:logout': { request: undefined; response: AuthStatus };
+
   'library:platforms': { request: undefined; response: PlatformSummary[] };
   'library:roms': { request: RomQuery; response: RomPage };
   'library:romAssets': { request: number; response: RomAssets };
@@ -170,30 +307,59 @@ export interface IpcContract {
   'library:recentlyPlayed': { request: undefined; response: RomSummary[] };
   'library:romDetail': { request: number; response: RomDetail };
   'library:coreCoverage': { request: undefined; response: PlatformCoverage[] };
-  'debug:apiProbe': { request: undefined; response: ProbeFinding[] };
+
   'retroarch:status': { request: undefined; response: RetroArchStatus };
-  /** Resolves once RetroArch is running; later changes arrive as `game:stateChanged`. */
-  'game:play': { request: number; response: undefined };
+  /**
+   * Resolves once RetroArch is running, or once the launch is blocked on a decision;
+   * later changes arrive as `game:stateChanged`.
+   */
+  'game:play': { request: PlayRequest; response: undefined };
   'game:state': { request: undefined; response: LaunchState };
-  /** Downloads into the cache without launching. */
+  /** Adds the game to the download queue without launching it. */
   'game:download': { request: number; response: undefined };
   'game:deleteLocal': { request: number; response: undefined };
+  /** `core: null` returns the game to its platform's core. */
+  'game:setCore': { request: { romId: number; core: string | null }; response: undefined };
+
+  'downloads:list': { request: undefined; response: DownloadJob[] };
+  'downloads:cancel': { request: number; response: undefined };
+  'downloads:clearFinished': { request: undefined; response: undefined };
+
+  'saves:sync': { request: number; response: SyncReport };
+  'saves:lastReport': { request: number; response: SyncReport | null };
+  'saves:resolveConflict': { request: ConflictResolution; response: SyncReport };
+  'saves:syncAll': { request: undefined; response: SyncAllResult };
+
+  'controllers:list': { request: undefined; response: ControllerInfo[] };
+  /** Runs a fresh detection (takes several seconds). */
+  'controllers:detect': { request: undefined; response: ControllerInfo[] };
+  'controllers:setPlayerOne': { request: string; response: ControllerInfo[] };
+
+  'settings:get': { request: undefined; response: SettingsView };
+  'settings:update': { request: SettingsPatch; response: SettingsView };
+  /** Opens a folder (or, for RetroArch, file) picker and applies the choice. */
+  'settings:choosePath': { request: FolderSetting; response: SettingsView };
+
   'setup:status': { request: undefined; response: SetupStatus };
   /** Opens a folder picker; resolves with the (possibly unchanged) status. */
   'setup:chooseCacheDir': { request: undefined; response: SetupStatus };
   'setup:importPreview': { request: undefined; response: ImportPreview };
   'setup:importSaves': { request: undefined; response: number };
   'setup:complete': { request: undefined; response: SetupStatus };
+
+  'app:online': { request: undefined; response: boolean };
   'app:quit': { request: undefined; response: undefined };
   'app:toggleFullscreen': { request: undefined; response: undefined };
-  'saves:sync': { request: number; response: SyncReport };
-  'saves:lastReport': { request: number; response: SyncReport | null };
-  'saves:resolveConflict': { request: ConflictResolution; response: SyncReport };
+
+  'debug:apiProbe': { request: undefined; response: ProbeFinding[] };
 }
 
 /** Pushed from main to renderer, without a request. */
 export interface IpcEvents {
   'game:stateChanged': LaunchState;
+  'downloads:changed': DownloadJob[];
+  /** False while the RomM server cannot be reached. */
+  'app:onlineChanged': boolean;
 }
 
 export type IpcChannel = keyof IpcContract;
@@ -210,6 +376,7 @@ export type IpcErrorCode =
   | 'core_missing'
   | 'unsupported_rom'
   | 'busy'
+  | 'cancelled'
   | 'download_failed'
   | 'launch_failed'
   | 'internal';
@@ -229,6 +396,10 @@ type Call<C extends IpcChannel> =
     ? () => Promise<IpcResult<IpcResponse<C>>>
     : (request: IpcRequest<C>) => Promise<IpcResult<IpcResponse<C>>>;
 
+type Subscribe<E extends keyof IpcEvents> = (
+  listener: (payload: IpcEvents[E]) => void,
+) => () => void;
+
 /** The API the preload script exposes as `window.romm`. */
 export interface LauncherApi {
   server: { probe: Call<'server:probe'> };
@@ -246,6 +417,38 @@ export interface LauncherApi {
     romDetail: Call<'library:romDetail'>;
     coreCoverage: Call<'library:coreCoverage'>;
   };
+  retroarch: { status: Call<'retroarch:status'> };
+  game: {
+    play: Call<'game:play'>;
+    state: Call<'game:state'>;
+    download: Call<'game:download'>;
+    deleteLocal: Call<'game:deleteLocal'>;
+    setCore: Call<'game:setCore'>;
+    /** Each `on...` returns a function that removes the listener. */
+    onStateChanged: Subscribe<'game:stateChanged'>;
+  };
+  downloads: {
+    list: Call<'downloads:list'>;
+    cancel: Call<'downloads:cancel'>;
+    clearFinished: Call<'downloads:clearFinished'>;
+    onChanged: Subscribe<'downloads:changed'>;
+  };
+  saves: {
+    sync: Call<'saves:sync'>;
+    lastReport: Call<'saves:lastReport'>;
+    resolveConflict: Call<'saves:resolveConflict'>;
+    syncAll: Call<'saves:syncAll'>;
+  };
+  controllers: {
+    list: Call<'controllers:list'>;
+    detect: Call<'controllers:detect'>;
+    setPlayerOne: Call<'controllers:setPlayerOne'>;
+  };
+  settings: {
+    get: Call<'settings:get'>;
+    update: Call<'settings:update'>;
+    choosePath: Call<'settings:choosePath'>;
+  };
   setup: {
     status: Call<'setup:status'>;
     chooseCacheDir: Call<'setup:chooseCacheDir'>;
@@ -253,20 +456,11 @@ export interface LauncherApi {
     importSaves: Call<'setup:importSaves'>;
     complete: Call<'setup:complete'>;
   };
-  app: { quit: Call<'app:quit'>; toggleFullscreen: Call<'app:toggleFullscreen'> };
+  app: {
+    online: Call<'app:online'>;
+    quit: Call<'app:quit'>;
+    toggleFullscreen: Call<'app:toggleFullscreen'>;
+    onOnlineChanged: Subscribe<'app:onlineChanged'>;
+  };
   debug: { apiProbe: Call<'debug:apiProbe'> };
-  retroarch: { status: Call<'retroarch:status'> };
-  saves: {
-    sync: Call<'saves:sync'>;
-    lastReport: Call<'saves:lastReport'>;
-    resolveConflict: Call<'saves:resolveConflict'>;
-  };
-  game: {
-    play: Call<'game:play'>;
-    state: Call<'game:state'>;
-    download: Call<'game:download'>;
-    deleteLocal: Call<'game:deleteLocal'>;
-    /** Returns a function that removes the listener. */
-    onStateChanged: (listener: (state: LaunchState) => void) => () => void;
-  };
 }

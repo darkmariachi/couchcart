@@ -8,6 +8,12 @@ import { toIpcError } from './errors';
 const noRequest = z.undefined();
 const romId = z.number().int().positive();
 const serverUrl = z.string().trim().min(1).max(2048);
+const path = z.string().min(1).max(4096);
+const coreName = z
+  .string()
+  .regex(/^[A-Za-z0-9_.-]+$/)
+  .max(100);
+const gamepadCombo = z.enum(['keep', 'none', 'hold_start', 'hold_select', 'start_select', 'l3_r3']);
 
 // The renderer is treated as untrusted input: every request is validated before use.
 const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
@@ -19,6 +25,7 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
     password: z.string().min(1).max(1024),
   }),
   'auth:logout': noRequest,
+
   'library:platforms': noRequest,
   'library:roms': z.object({
     platformId: z.number().int().positive(),
@@ -31,19 +38,22 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
   'library:recentlyPlayed': noRequest,
   'library:romDetail': romId,
   'library:coreCoverage': noRequest,
-  'debug:apiProbe': noRequest,
+
   'retroarch:status': noRequest,
-  'game:play': z.number().int().positive(),
+  'game:play': z.object({
+    romId,
+    ignoreConflicts: z.boolean().optional(),
+    ignoreMissingBios: z.boolean().optional(),
+  }),
   'game:state': noRequest,
   'game:download': romId,
   'game:deleteLocal': romId,
-  'setup:status': noRequest,
-  'setup:chooseCacheDir': noRequest,
-  'setup:importPreview': noRequest,
-  'setup:importSaves': noRequest,
-  'setup:complete': noRequest,
-  'app:quit': noRequest,
-  'app:toggleFullscreen': noRequest,
+  'game:setCore': z.object({ romId, core: coreName.nullable() }),
+
+  'downloads:list': noRequest,
+  'downloads:cancel': romId,
+  'downloads:clearFinished': noRequest,
+
   'saves:sync': romId,
   'saves:lastReport': romId,
   'saves:resolveConflict': z.object({
@@ -52,6 +62,42 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
     fileName: z.string().min(1).max(255),
     keep: z.enum(['local', 'server']),
   }),
+  'saves:syncAll': noRequest,
+
+  'controllers:list': noRequest,
+  'controllers:detect': noRequest,
+  'controllers:setPlayerOne': z.string().min(1).max(300),
+
+  'settings:get': noRequest,
+  'settings:update': z.object({
+    deviceName: z.string().trim().min(1).max(100).optional(),
+    saveBackupCount: z.number().int().min(1).max(1000).optional(),
+    launcherFullscreen: z.boolean().optional(),
+    retroarchFullscreen: z.boolean().optional(),
+    retroarchExtraArgs: z.string().max(1000).optional(),
+    retroarchPath: path.nullable().optional(),
+    coresDir: path.nullable().optional(),
+    cacheKeep: z.enum(['always', 'limit', 'never']).optional(),
+    cacheLimitGb: z.number().min(1).max(100_000).optional(),
+    menuCombo: gamepadCombo.optional(),
+    quitCombo: gamepadCombo.optional(),
+    platformCore: z
+      .object({ slug: z.string().min(1).max(100), core: coreName.nullable() })
+      .optional(),
+  }),
+  'settings:choosePath': z.enum(['cache', 'retroarch', 'cores']),
+
+  'setup:status': noRequest,
+  'setup:chooseCacheDir': noRequest,
+  'setup:importPreview': noRequest,
+  'setup:importSaves': noRequest,
+  'setup:complete': noRequest,
+
+  'app:online': noRequest,
+  'app:quit': noRequest,
+  'app:toggleFullscreen': noRequest,
+
+  'debug:apiProbe': noRequest,
 };
 
 type Handlers = {
@@ -67,6 +113,7 @@ export function registerIpcHandlers(
     'auth:status': () => app.status(),
     'auth:login': (request) => app.login(request),
     'auth:logout': () => app.logout(),
+
     'library:platforms': () => app.listPlatforms(),
     'library:roms': (query) => app.listRoms(query),
     'library:romAssets': (id) => app.getRomAssets(id),
@@ -74,22 +121,42 @@ export function registerIpcHandlers(
     'library:recentlyPlayed': () => app.listRecentlyPlayed(),
     'library:romDetail': (id) => app.getRomDetail(id),
     'library:coreCoverage': () => app.getCoreCoverage(),
-    'debug:apiProbe': () => app.runApiProbe(),
+
     'retroarch:status': () => app.getRetroArchStatus(),
-    'game:play': (romId) => app.play(romId),
+    'game:play': (request) => app.play(request),
     'game:state': () => app.getLaunchState(),
     'game:download': (id) => app.downloadRom(id),
     'game:deleteLocal': (id) => app.deleteLocalRom(id),
+    'game:setCore': ({ romId: id, core }) => app.setGameCore(id, core),
+
+    'downloads:list': () => app.listDownloads(),
+    'downloads:cancel': (id) => app.cancelDownload(id),
+    'downloads:clearFinished': () => app.clearFinishedDownloads(),
+
+    'saves:sync': (id) => app.syncSaves(id),
+    'saves:lastReport': (id) => app.getLastSyncReport(id),
+    'saves:resolveConflict': (resolution) => app.resolveConflict(resolution),
+    'saves:syncAll': () => app.syncAllSaves(),
+
+    'controllers:list': () => app.listControllers(),
+    'controllers:detect': () => app.detectControllers(),
+    'controllers:setPlayerOne': (signature) => app.setPlayerOne(signature),
+
+    'settings:get': () => app.getSettingsView(),
+    'settings:update': (patch) => app.updateSettings(patch),
+    'settings:choosePath': (setting) => app.chooseSettingPath(setting),
+
     'setup:status': () => app.getSetupStatus(),
     'setup:chooseCacheDir': () => app.chooseCacheDir(),
     'setup:importPreview': () => app.getImportPreview(),
     'setup:importSaves': () => app.importSaves(),
     'setup:complete': () => app.completeSetup(),
+
+    'app:online': () => app.isOnline(),
     'app:quit': () => app.quit(),
     'app:toggleFullscreen': () => app.toggleFullscreen(),
-    'saves:sync': (id) => app.syncSaves(id),
-    'saves:lastReport': (id) => app.getLastSyncReport(id),
-    'saves:resolveConflict': (resolution) => app.resolveConflict(resolution),
+
+    'debug:apiProbe': () => app.runApiProbe(),
   };
 
   for (const channel of Object.keys(handlers) as IpcChannel[]) {

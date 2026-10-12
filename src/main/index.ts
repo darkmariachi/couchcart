@@ -81,10 +81,14 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   let mainWindow: BrowserWindow | null = null;
 
+  /** Pushes an event to the UI, if there is a window to receive it. */
+  const send = <E extends keyof IpcEvents>(event: E, payload: IpcEvents[E]) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(event, payload);
+  };
+
   const onLaunchStateChanged = (state: LaunchState) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
-    const event: keyof IpcEvents = 'game:stateChanged';
-    mainWindow.webContents.send(event, state);
+    send('game:stateChanged', state);
 
     // Get out of the way while the game runs, and take the screen back when it ends.
     if (state.phase === 'running') mainWindow.hide();
@@ -113,12 +117,14 @@ if (!app.requestSingleInstanceLock()) {
       appVersion: app.getVersion(),
       encryptor: osEncryptor,
       onLaunchStateChanged,
+      onDownloadsChanged: (jobs) => send('downloads:changed', jobs),
+      onOnlineChanged: (online) => send('app:onlineChanged', online),
       shell: {
-        chooseDirectory: async (startIn) => {
+        choosePath: async (kind, startIn) => {
           if (!mainWindow) return null;
           const result = await dialog.showOpenDialog(mainWindow, {
             defaultPath: startIn,
-            properties: ['openDirectory', 'createDirectory'],
+            properties: kind === 'file' ? ['openFile'] : ['openDirectory', 'createDirectory'],
           });
           return result.canceled ? null : (result.filePaths[0] ?? null);
         },
@@ -132,6 +138,8 @@ if (!app.requestSingleInstanceLock()) {
       createCoverHandler(join(app.getPath('userData'), 'covers'), () => launcher.coverSource),
     );
     registerIpcHandlers(launcher, isTrustedSender);
+    launcher.start();
+    app.on('before-quit', () => launcher.stop());
     mainWindow = createWindow(shouldStartFullscreen(launcher.launcherFullscreen));
     log.info(`RomM Launcher ${app.getVersion()} started`);
   });

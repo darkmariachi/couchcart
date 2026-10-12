@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { TokenSet } from '../src/main/romm/auth';
 import { CredentialStore, type Encryptor } from '../src/main/romm/credentials';
-import { migrateSettings } from '../src/main/settings/schema';
+import { CURRENT_SETTINGS_VERSION, migrateSettings } from '../src/main/settings/schema';
 import { SettingsStore } from '../src/main/settings/store';
 
 let dir: string;
@@ -20,7 +20,7 @@ describe('SettingsStore', () => {
     const store = new SettingsStore(file(), 'LIVINGROOM-PC');
 
     expect(store.get()).toMatchObject({
-      version: 4,
+      version: CURRENT_SETTINGS_VERSION,
       serverUrl: null,
       username: null,
       deviceName: 'LIVINGROOM-PC',
@@ -47,7 +47,7 @@ describe('SettingsStore', () => {
 
   it.each([
     ['corrupt JSON', '{ "version": 1, '],
-    ['a wrong shape', JSON.stringify({ version: 4, serverUrl: 42 })],
+    ['a wrong shape', JSON.stringify({ version: CURRENT_SETTINGS_VERSION, serverUrl: 42 })],
     ['a newer version', JSON.stringify({ version: 99, somethingNew: true })],
   ])('falls back to defaults on %s and keeps the original for inspection', (_, content) => {
     writeFileSync(file(), content);
@@ -71,7 +71,7 @@ describe('SettingsStore', () => {
 
     expect(settings).toMatchObject({
       ...v1,
-      version: 4,
+      version: CURRENT_SETTINGS_VERSION,
       deviceId: null,
       saveBackupCount: 10,
       setupComplete: false,

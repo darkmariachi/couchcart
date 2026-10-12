@@ -3,15 +3,16 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import type { LaunchState } from '../src/shared/ipc';
+import type { LaunchState, PlayRequest, SyncReport } from '../src/shared/ipc';
+import { DownloadManager } from '../src/main/downloads/downloadManager';
+import type { downloadRom } from '../src/main/downloads/romDownloader';
 import { LauncherError } from '../src/main/errors';
-import { resolveCore, type CoreRequest } from '../src/main/launcher/cores';
+import { coreFileExtension, resolveCore, type CoreRequest } from '../src/main/launcher/cores';
 import { buildLaunchArgs, buildLaunchConfig } from '../src/main/launcher/launchConfig';
 import {
   LaunchService,
   type LaunchServiceDeps,
   type LaunchableRom,
-  type RomSource,
 } from '../src/main/launcher/launchService';
 import { parseSteamLibraryFolders, type RetroArchInstall } from '../src/main/launcher/retroarch';
 import { DataPaths, safeSegment } from '../src/main/paths';
@@ -168,27 +169,25 @@ describe('LaunchService', () => {
   let states: LaunchState[];
   let child: EventEmitter;
   let spawn: Mock<(executable: string, args: string[], options: { cwd: string }) => EventEmitter>;
-  let fetchRaw: Mock<RomSource['fetchRaw']>;
+  let downloadFile: Mock<typeof downloadRom>;
   let settings: Settings;
-  const markPlayed = vi.fn(async () => {});
-  const syncSaves = vi.fn<LaunchServiceDeps['syncSaves']>(async (syncedRom) => ({
-    romId: syncedRom.id,
-    status: 'synced',
-    items: [],
-    at: '2026-01-01T00:00:00.000Z',
-  }));
   let now: number;
+  let missingBios: string[];
+  let syncStatus: SyncReport['status'];
 
   const ROM_BYTES = Buffer.from('pretend this is an N64 ROM');
   const rom: LaunchableRom = {
     id: 21,
+    name: 'Game',
     fs_name: 'Game (U) [!].z64',
     fs_size_bytes: ROM_BYTES.length,
     md5_hash: null,
+    full_path: 'roms/n64/Game (U) [!].z64',
     platform_slug: 'n64',
     platform_fs_slug: 'n64',
     platform_display_name: 'Nintendo 64',
     has_simple_single_file: true,
+    files: [],
   };
   const install: RetroArchInstall = {
     executablePath: '/opt/retroarch/retroarch',
@@ -199,16 +198,42 @@ describe('LaunchService', () => {
     version: '1.22.2',
   };
 
+  const markPlayed = vi.fn(async () => {});
+  const syncSaves = vi.fn<LaunchServiceDeps['syncSaves']>(async (syncedRom) => ({
+    romId: syncedRom.id,
+    status: syncStatus,
+    items:
+      syncStatus === 'conflict'
+        ? [
+            {
+              kind: 'save',
+              fileName: 'Game (U) [!].srm',
+              action: 'conflict',
+              outcome: 'conflict',
+              detail: 'changed on both sides',
+            },
+          ]
+        : [],
+    at: '2026-01-01T00:00:00.000Z',
+  }));
+
   function createService(overrides: Partial<LaunchServiceDeps> = {}) {
     return new LaunchService({
-      getRomSource: () => ({ getRom: async () => rom, fetchRaw, markPlayed }),
+      getRomSource: () => ({ getRom: async () => rom, markPlayed }),
       getSettings: () => settings,
       paths: new DataPaths(dir, () => null),
+      downloads: new DownloadManager(
+        () => ({ fetchRaw: async () => new Response(null) }),
+        () => {},
+        downloadFile,
+      ),
       locateRetroArch: async () => install,
       listInstalledCores: () => new Set(['mupen64plus_next_libretro']),
       spawn: spawn as unknown as LaunchServiceDeps['spawn'],
       onStateChanged: (state) => states.push(state),
       syncSaves,
+      getControllerSettings: async () => ({ input_player1_device_reservation_type: '2' }),
+      findMissingBios: async () => missingBios,
       now: () => now,
       ...overrides,
     });
@@ -218,45 +243,50 @@ describe('LaunchService', () => {
   const phases = () =>
     states.map((state) => state.phase).filter((phase, i, all) => phase !== all[i - 1]);
   const romPath = () => join(dir, 'roms', 'n64', rom.fs_name);
+  const play = (service: LaunchService, options: Partial<PlayRequest> = {}) =>
+    service.play({ romId: rom.id, ...options });
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'romm-launcher-launch-'));
     states = [];
     syncSaves.mockClear();
+    markPlayed.mockClear();
     now = 1_000_000;
-    settings = defaultSettings('PC');
+    missingBios = [];
+    syncStatus = 'synced';
+    settings = { ...defaultSettings('PC'), cache: { keep: 'always', limitGb: 20 } };
     child = new EventEmitter();
     spawn = vi.fn(() => {
       queueMicrotask(() => child.emit('spawn'));
       return child;
     });
-    fetchRaw = vi.fn(
-      async () => new Response(ROM_BYTES, { headers: { 'content-length': `${ROM_BYTES.length}` } }),
-    );
+    downloadFile = vi.fn(async (_source, download) => {
+      mkdirSync(dirname(download.destination), { recursive: true });
+      writeFileSync(download.destination, ROM_BYTES);
+    });
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   it('downloads, launches with the mapped core, and reports the exit', async () => {
     const service = createService();
 
-    await service.play(rom.id);
+    await play(service);
 
     expect(readFileSync(romPath())).toEqual(ROM_BYTES);
-    expect(existsSync(`${romPath()}.part`)).toBe(false);
     const [executable, args, options] = spawn.mock.calls[0] ?? ['', [], { cwd: '' }];
     expect(executable).toBe(install.executablePath);
     expect(args.slice(0, 3)).toEqual([
       '-L',
-      join(
-        install.coresDir,
-        `mupen64plus_next_libretro${process.platform === 'win32' ? '.dll' : process.platform === 'darwin' ? '.dylib' : '.so'}`,
-      ),
+      join(install.coresDir, `mupen64plus_next_libretro${coreFileExtension()}`),
       romPath(),
     ]);
     expect(options.cwd).toBe(install.workingDir);
-    expect(readFileSync(args[4] ?? '', 'utf8')).toContain('savefile_directory');
+    const config = readFileSync(args[4] ?? '', 'utf8');
+    expect(config).toContain('savefile_directory');
+    expect(config).toContain('input_player1_device_reservation_type = "2"');
     expect(existsSync(join(dir, 'saves', 'n64'))).toBe(true);
     expect(service.getState().phase).toBe('running');
+    expect(markPlayed).toHaveBeenCalledWith(rom.id);
 
     now += 90_000;
     child.emit('exit', 0);
@@ -272,7 +302,6 @@ describe('LaunchService', () => {
     expect(phases()).toEqual([
       'starting',
       'downloading',
-      'starting',
       'syncing',
       'starting',
       'running',
@@ -288,32 +317,32 @@ describe('LaunchService', () => {
     mkdirSync(dirname(romPath()), { recursive: true });
     writeFileSync(romPath(), ROM_BYTES);
 
-    await createService().play(rom.id);
+    await play(createService());
 
-    expect(fetchRaw).not.toHaveBeenCalled();
+    expect(downloadFile).not.toHaveBeenCalled();
     expect(phases()).toEqual(['starting', 'syncing', 'starting', 'running']);
   });
 
   it('refuses a second game while one is running, then allows one after exit', async () => {
     const service = createService();
-    await service.play(rom.id);
+    await play(service);
 
-    await expect(service.play(rom.id)).rejects.toMatchObject({ code: 'busy' });
+    await expect(play(service)).rejects.toMatchObject({ code: 'busy' });
     expect(service.getState().phase).toBe('running');
 
     child.emit('exit', 0);
     await vi.waitFor(() => expect(service.getState().phase).toBe('exited'));
-    await expect(service.play(rom.id)).resolves.toBeUndefined();
+    await expect(play(service)).resolves.toBeUndefined();
   });
 
   it('explains a missing core before downloading anything', async () => {
     const service = createService({ listInstalledCores: () => new Set() });
 
-    await expect(service.play(rom.id)).rejects.toMatchObject({
+    await expect(play(service)).rejects.toMatchObject({
       code: 'core_missing',
       message: expect.stringContaining('mupen64plus_next'),
     });
-    expect(fetchRaw).not.toHaveBeenCalled();
+    expect(downloadFile).not.toHaveBeenCalled();
     expect(spawn).not.toHaveBeenCalled();
     expect(service.getState()).toMatchObject({ phase: 'failed', error: { code: 'core_missing' } });
   });
@@ -325,27 +354,15 @@ describe('LaunchService', () => {
       locateRetroArch: async () => ({ ...install, kind: 'steam' }),
     });
 
-    await expect(steam.play(rom.id)).rejects.toThrow(/DLC/);
-    await expect(createService(noCores).play(rom.id)).rejects.toThrow(/Online Updater/);
+    await expect(play(steam)).rejects.toThrow(/DLC/);
+    await expect(play(createService(noCores))).rejects.toThrow(/Online Updater/);
   });
 
   it('reports when RetroArch is not installed', async () => {
     const service = createService({ locateRetroArch: async () => null });
 
-    await expect(service.play(rom.id)).rejects.toMatchObject({ code: 'retroarch_not_found' });
-    expect(fetchRaw).not.toHaveBeenCalled();
-  });
-
-  it('rejects multi-file games for now', async () => {
-    const service = createService({
-      getRomSource: () => ({
-        getRom: async () => ({ ...rom, has_simple_single_file: false }),
-        fetchRaw,
-        markPlayed,
-      }),
-    });
-
-    await expect(service.play(rom.id)).rejects.toMatchObject({ code: 'unsupported_rom' });
+    await expect(play(service)).rejects.toMatchObject({ code: 'retroarch_not_found' });
+    expect(downloadFile).not.toHaveBeenCalled();
   });
 
   it('fails cleanly when the executable cannot be started', async () => {
@@ -355,9 +372,20 @@ describe('LaunchService', () => {
     });
     const service = createService();
 
-    await expect(service.play(rom.id)).rejects.toMatchObject({ code: 'launch_failed' });
+    await expect(play(service)).rejects.toMatchObject({ code: 'launch_failed' });
     expect(service.getState().phase).toBe('failed');
-    await expect(service.play(rom.id)).rejects.toMatchObject({ code: 'launch_failed' }); // not stuck busy
+    await expect(play(service)).rejects.toMatchObject({ code: 'launch_failed' }); // not stuck busy
+  });
+
+  it('reports a failed download and can be retried', async () => {
+    downloadFile.mockRejectedValueOnce(new Error('disk full'));
+    const service = createService();
+
+    await expect(play(service)).rejects.toThrow('disk full');
+    expect(service.getState().phase).toBe('failed');
+    expect(spawn).not.toHaveBeenCalled();
+
+    await expect(play(service)).resolves.toBeUndefined();
   });
 
   it('honours the fullscreen setting and extra arguments', async () => {
@@ -366,10 +394,109 @@ describe('LaunchService', () => {
       retroarch: { ...settings.retroarch, fullscreen: false, extraArgs: ['--verbose'] },
     };
 
-    await createService().play(rom.id);
+    await play(createService());
 
     const args = spawn.mock.calls[0]?.[1] ?? [];
     expect(args).not.toContain('--fullscreen');
     expect(args.at(-1)).toBe('--verbose');
+  });
+
+  describe('decisions before launch', () => {
+    it('stops at a save conflict instead of starting the game', async () => {
+      syncStatus = 'conflict';
+      const service = createService();
+
+      await play(service);
+
+      expect(spawn).not.toHaveBeenCalled();
+      expect(service.getState()).toMatchObject({
+        phase: 'blocked',
+        block: { type: 'conflict', conflicts: [{ fileName: 'Game (U) [!].srm' }] },
+      });
+    });
+
+    it('starts with this PC’s save when the user decides to choose later', async () => {
+      syncStatus = 'conflict';
+      const service = createService();
+      await play(service);
+
+      await play(service, { ignoreConflicts: true });
+
+      expect(service.getState().phase).toBe('running');
+    });
+
+    it('warns about a missing BIOS before downloading, and can be overridden', async () => {
+      missingBios = ['PlayStation BIOS (one of: scph5501.bin)'];
+      const service = createService();
+
+      await play(service);
+
+      expect(downloadFile).not.toHaveBeenCalled();
+      expect(service.getState()).toMatchObject({
+        phase: 'blocked',
+        block: { type: 'bios', platformName: 'Nintendo 64', missing: missingBios },
+      });
+
+      await play(service, { ignoreMissingBios: true });
+      expect(service.getState().phase).toBe('running');
+    });
+  });
+
+  describe('after the session', () => {
+    it('keeps the game by default', async () => {
+      const service = createService();
+      await play(service);
+
+      child.emit('exit', 0);
+      await vi.waitFor(() => expect(service.getState().phase).toBe('exited'));
+
+      expect(existsSync(romPath())).toBe(true);
+    });
+
+    it('removes the game when games are never kept', async () => {
+      settings = { ...settings, cache: { keep: 'never', limitGb: 20 } };
+      const service = createService();
+      await play(service);
+      expect(existsSync(romPath())).toBe(true);
+
+      child.emit('exit', 0);
+      await vi.waitFor(() => expect(service.getState().phase).toBe('exited'));
+
+      expect(existsSync(romPath())).toBe(false);
+    });
+  });
+
+  describe('downloads and local copies', () => {
+    it('queues a download without launching', async () => {
+      const service = createService();
+
+      await service.queueDownload(rom.id);
+      await vi.waitFor(() => expect(existsSync(romPath())).toBe(true));
+
+      expect(spawn).not.toHaveBeenCalled();
+      expect(await service.isDownloaded(rom)).toBe(true);
+    });
+
+    it('deletes the local copy but not the saves', async () => {
+      const service = createService();
+      await service.queueDownload(rom.id);
+      await vi.waitFor(() => expect(existsSync(romPath())).toBe(true));
+      const save = join(dir, 'saves', 'n64', 'Game (U) [!].srm');
+      mkdirSync(dirname(save), { recursive: true });
+      writeFileSync(save, 'progress');
+
+      await service.deleteLocal(rom.id);
+
+      expect(existsSync(romPath())).toBe(false);
+      expect(readFileSync(save, 'utf8')).toBe('progress');
+    });
+
+    it('refuses to delete the game that is running', async () => {
+      const service = createService();
+      await play(service);
+
+      await expect(service.deleteLocal(rom.id)).rejects.toMatchObject({ code: 'busy' });
+      expect(existsSync(romPath())).toBe(true);
+    });
   });
 });

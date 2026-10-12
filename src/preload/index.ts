@@ -40,6 +40,37 @@ const api: LauncherApi = {
     romDetail: call('library:romDetail'),
     coreCoverage: call('library:coreCoverage'),
   },
+  retroarch: { status: call('retroarch:status') },
+  game: {
+    play: call('game:play'),
+    state: call('game:state'),
+    download: call('game:download'),
+    deleteLocal: call('game:deleteLocal'),
+    setCore: call('game:setCore'),
+    onStateChanged: subscribe('game:stateChanged'),
+  },
+  downloads: {
+    list: call('downloads:list'),
+    cancel: call('downloads:cancel'),
+    clearFinished: call('downloads:clearFinished'),
+    onChanged: subscribe('downloads:changed'),
+  },
+  saves: {
+    sync: call('saves:sync'),
+    lastReport: call('saves:lastReport'),
+    resolveConflict: call('saves:resolveConflict'),
+    syncAll: call('saves:syncAll'),
+  },
+  controllers: {
+    list: call('controllers:list'),
+    detect: call('controllers:detect'),
+    setPlayerOne: call('controllers:setPlayerOne'),
+  },
+  settings: {
+    get: call('settings:get'),
+    update: call('settings:update'),
+    choosePath: call('settings:choosePath'),
+  },
   setup: {
     status: call('setup:status'),
     chooseCacheDir: call('setup:chooseCacheDir'),
@@ -47,21 +78,13 @@ const api: LauncherApi = {
     importSaves: call('setup:importSaves'),
     complete: call('setup:complete'),
   },
-  app: { quit: call('app:quit'), toggleFullscreen: call('app:toggleFullscreen') },
+  app: {
+    online: call('app:online'),
+    quit: call('app:quit'),
+    toggleFullscreen: call('app:toggleFullscreen'),
+    onOnlineChanged: subscribe('app:onlineChanged'),
+  },
   debug: { apiProbe: call('debug:apiProbe') },
-  retroarch: { status: call('retroarch:status') },
-  saves: {
-    sync: call('saves:sync'),
-    lastReport: call('saves:lastReport'),
-    resolveConflict: call('saves:resolveConflict'),
-  },
-  game: {
-    play: call('game:play'),
-    state: call('game:state'),
-    download: call('game:download'),
-    deleteLocal: call('game:deleteLocal'),
-    onStateChanged: subscribe('game:stateChanged'),
-  },
 };
 
 contextBridge.exposeInMainWorld('romm', api);
