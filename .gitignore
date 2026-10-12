@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+# Real API responses may contain account or library details; never commit them.
+tests/fixtures/recorded/

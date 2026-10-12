@@ -1,0 +1,44 @@
+{
+  "name": "romm-launcher",
+  "version": "0.1.0",
+  "description": "Couch-friendly launcher and save-sync client for RomM, using RetroArch for emulation",
+  "private": true,
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "api:fetch": "node scripts/fetch-openapi.mjs",
+    "api:types": "openapi-typescript docs/romm-openapi.json -o src/main/romm/schema.d.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.104.2",
+    "openapi-fetch": "^0.17.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^44.7.0",
+    "electron-vite": "^5.0.0",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "msw": "^2.15.0",
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "5.9",
+    "typescript-eslint": "^8.71.1",
+    "vite": "^7.3.7",
+    "vitest": "^5.0.3"
+  }
+}
