@@ -19,11 +19,13 @@ describe('SettingsStore', () => {
   it('starts from defaults without creating a file', () => {
     const store = new SettingsStore(file(), 'LIVINGROOM-PC');
 
-    expect(store.get()).toEqual({
-      version: 1,
+    expect(store.get()).toMatchObject({
+      version: 2,
       serverUrl: null,
       username: null,
       deviceName: 'LIVINGROOM-PC',
+      retroarch: { executablePath: null, fullscreen: true },
+      cacheDir: null,
     });
     expect(existsSync(file())).toBe(false);
   });
@@ -45,7 +47,7 @@ describe('SettingsStore', () => {
 
   it.each([
     ['corrupt JSON', '{ "version": 1, '],
-    ['a wrong shape', JSON.stringify({ version: 1, serverUrl: 42 })],
+    ['a wrong shape', JSON.stringify({ version: 2, serverUrl: 42 })],
     ['a newer version', JSON.stringify({ version: 99, somethingNew: true })],
   ])('falls back to defaults on %s and keeps the original for inspection', (_, content) => {
     writeFileSync(file(), content);
@@ -54,6 +56,28 @@ describe('SettingsStore', () => {
 
     expect(store.get().serverUrl).toBeNull();
     expect(readFileSync(`${file()}.invalid`, 'utf8')).toBe(content);
+  });
+
+  it('upgrades a version 1 file without losing what it held', () => {
+    const v1 = {
+      version: 1,
+      serverUrl: 'https://romm.example.lan',
+      username: 'player',
+      deviceName: 'LIVINGROOM-PC',
+    };
+    writeFileSync(file(), JSON.stringify(v1));
+
+    const settings = new SettingsStore(file(), 'IGNORED').get();
+
+    expect(settings).toMatchObject({ ...v1, version: 2 });
+    expect(settings.retroarch).toEqual({
+      executablePath: null,
+      coresDir: null,
+      fullscreen: true,
+      extraArgs: [],
+    });
+    expect(settings.coreOverrides).toEqual({ platforms: {}, games: {} });
+    expect(existsSync(`${file()}.invalid`)).toBe(false);
   });
 
   it('does not treat unversioned data as settings', () => {
