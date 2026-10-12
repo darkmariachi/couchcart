@@ -64,9 +64,31 @@ to.
 <sub>The games and artwork in these screenshots are invented. Covers in the app come from your own
 RomM server.</sub>
 
+## Status
+
+Couchcart is young. It has been used on Windows with a RomM 5.4 server; here is what has and
+has not been tried.
+
+| Area                                                         | State                              |
+| ------------------------------------------------------------ | ---------------------------------- |
+| Browsing, search, collections, favourites                    | Works                              |
+| Downloading and playing single-file games (Windows)          | Works                              |
+| Save sync: upload, restore on another PC, conflicts, offline | Works                              |
+| RetroArch from Steam or a standalone install (Windows)       | Works                              |
+| RetroArch and cores downloaded by the launcher (Windows)     | Works                              |
+| Running from Steam Big Picture                               | Works                              |
+| Signing in with a code                                       | Built; approval not yet tested     |
+| Controllers with a RetroArch the launcher downloaded         | Built; not yet tested with a pad   |
+| Multi-disc games                                             | Built; not yet tested with a game  |
+| Linux                                                        | Starts; playing a game is untested |
+| RomM servers with a self-signed certificate                  | Not supported yet                  |
+| macOS                                                        | Not supported                      |
+
+If you try one of the untested rows, an issue saying how it went is very welcome.
+
 ## Contents
 
-- [Requirements](#requirements) · [Install](#install) · [First run](#first-run) ·
+- [Status](#status) · [Requirements](#requirements) · [Install](#install) · [First run](#first-run) ·
   [Controls](#controls)
 - [Library](#library) · [Controllers](#controllers) · [Saves](#saves) ·
   [Downloaded games](#downloaded-games)
