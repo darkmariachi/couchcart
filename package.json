@@ -1,6 +1,6 @@
 {
   "name": "couchcart",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Couchcart: a couch-friendly launcher and save-sync client for RomM libraries, using RetroArch for emulation",
   "private": true,
   "main": "./out/main/index.js",
