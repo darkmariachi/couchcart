@@ -7,6 +7,7 @@ import { LaunchOverlay } from './components/LaunchOverlay';
 import ui from './components/ui.module.css';
 import {
   useAuthStatus,
+  useControllerRedetection,
   useLaunchState,
   useRefreshLibraryAfterActivity,
   useSetupStatus,
@@ -14,9 +15,11 @@ import {
 import { InputProvider } from './input/InputProvider';
 import { useControls } from './input/controls';
 import { DebugScreen } from './screens/Debug/DebugScreen';
+import { DownloadsScreen } from './screens/DownloadsScreen';
 import { GameScreen } from './screens/GameScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { PlatformScreen } from './screens/PlatformScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
 import { SetupWizard } from './screens/SetupWizard';
 import { useCurrentEntry, useUi } from './store/ui';
 
@@ -34,6 +37,7 @@ function Shell() {
   const setup = useSetupStatus();
   const launch = useLaunchState();
   useRefreshLibraryAfterActivity(launch);
+  useControllerRedetection();
 
   const { push, reset } = useUi();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -57,6 +61,8 @@ function Shell() {
     ...(inLibrary
       ? [
           { label: 'Home', run: reset },
+          { label: 'Downloads', run: () => push({ name: 'downloads' }) },
+          { label: 'Settings', run: () => push({ name: 'settings' }) },
           { label: 'Debug tools', run: () => push({ name: 'debug' }) },
         ]
       : []),
@@ -91,6 +97,10 @@ function CurrentScreen({ username }: { username: string | null }) {
       return <PlatformScreen key={route.platformId} platformId={route.platformId} />;
     case 'game':
       return <GameScreen key={route.romId} romId={route.romId} />;
+    case 'settings':
+      return <SettingsScreen />;
+    case 'downloads':
+      return <DownloadsScreen />;
     case 'debug':
       return <DebugRoute />;
   }

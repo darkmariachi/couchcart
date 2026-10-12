@@ -5,6 +5,8 @@ export type Route =
   | { name: 'home' }
   | { name: 'platform'; platformId: number }
   | { name: 'game'; romId: number }
+  | { name: 'settings' }
+  | { name: 'downloads' }
   | { name: 'debug' };
 
 interface StackEntry {

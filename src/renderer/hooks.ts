@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { LaunchState } from '../shared/ipc';
+import type { DownloadJob, LaunchState } from '../shared/ipc';
 import { unwrap } from './api';
 
 export function useAuthStatus() {
@@ -72,4 +72,75 @@ export function useRefreshLibraryAfterActivity(state: LaunchState): void {
   useEffect(() => {
     if (settled) void queryClient.invalidateQueries({ queryKey: ['library'] });
   }, [settled, queryClient]);
+}
+
+export function useSettings() {
+  return useQuery({
+    queryKey: ['settings'],
+    queryFn: () => unwrap(window.romm.settings.get()),
+    staleTime: 0,
+  });
+}
+
+export function useControllers() {
+  return useQuery({
+    queryKey: ['controllers'],
+    queryFn: () => unwrap(window.romm.controllers.list()),
+    staleTime: 0,
+  });
+}
+
+/** The download queue, kept current by events from the main process. */
+export function useDownloads(): DownloadJob[] {
+  const [jobs, setJobs] = useState<DownloadJob[]>([]);
+
+  useEffect(() => {
+    void window.romm.downloads.list().then((result) => {
+      if (result.ok) setJobs(result.value);
+    });
+    return window.romm.downloads.onChanged(setJobs);
+  }, []);
+
+  return jobs;
+}
+
+/** False while the RomM server cannot be reached and the app shows remembered data. */
+export function useOnline(): boolean {
+  const [online, setOnline] = useState(true);
+
+  useEffect(() => {
+    void window.romm.app.online().then((result) => {
+      if (result.ok) setOnline(result.value);
+    });
+    return window.romm.app.onOnlineChanged(setOnline);
+  }, []);
+
+  return online;
+}
+
+/**
+ * Asks RetroArch to look for controllers again whenever one is plugged in or removed,
+ * so the next game starts with the right controller as player 1.
+ */
+export function useControllerRedetection(): void {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const redetect = () => {
+      clearTimeout(timer);
+      // Several events arrive in a burst when a controller connects.
+      timer = setTimeout(() => {
+        void window.romm.controllers
+          .detect()
+          .then(() => queryClient.invalidateQueries({ queryKey: ['controllers'] }));
+      }, 1500);
+    };
+    window.addEventListener('gamepadconnected', redetect);
+    window.addEventListener('gamepaddisconnected', redetect);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('gamepadconnected', redetect);
+      window.removeEventListener('gamepaddisconnected', redetect);
+    };
+  }, [queryClient]);
 }

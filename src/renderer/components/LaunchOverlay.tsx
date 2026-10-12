@@ -1,11 +1,20 @@
 import { useState } from 'react';
-import type { LaunchState } from '../../shared/ipc';
+import { useMutation } from '@tanstack/react-query';
+import type {
+  ConflictResolution,
+  LaunchBlock,
+  LaunchState,
+  SyncItemResult,
+} from '../../shared/ipc';
+import { errorMessage, unwrap } from '../api';
+import { formatWhen } from '../format';
 import { Dialog, MessageDialog } from './Dialog';
+import { Focusable } from './Focusable';
 import styles from './ui.module.css';
 
 /**
- * Covers the UI while a game is being fetched and started, so "Play" feels like one step,
- * and reports a failed launch or a save conflict afterwards.
+ * Covers the UI while a game is being fetched and started, so "Play" feels like one step.
+ * It also asks the questions a launch can stop at, and reports problems afterwards.
  */
 export function LaunchOverlay({ state }: { state: LaunchState }) {
   // Remember which outcome the user has already dismissed.
@@ -33,6 +42,8 @@ export function LaunchOverlay({ state }: { state: LaunchState }) {
           {null}
         </Dialog>
       );
+    case 'blocked':
+      return <BlockedDialog romId={state.romId} block={state.block} onCancel={dismiss} />;
     case 'failed':
       return (
         <MessageDialog title="Could not start" message={state.error.message} onClose={dismiss} />
@@ -51,6 +62,105 @@ export function LaunchOverlay({ state }: { state: LaunchState }) {
   }
 }
 
+function BlockedDialog(props: { romId: number; block: LaunchBlock; onCancel: () => void }) {
+  const { romId, block } = props;
+
+  // Starting again replaces the blocked state, which closes this dialog.
+  const play = useMutation({
+    mutationFn: (options: { ignoreConflicts?: boolean; ignoreMissingBios?: boolean }) =>
+      unwrap(window.romm.game.play({ romId, ...options })),
+  });
+  const resolveAll = useMutation({
+    mutationFn: async (keep: ConflictResolution['keep']) => {
+      if (block.type !== 'conflict') return;
+      for (const item of block.conflicts) {
+        await unwrap(
+          window.romm.saves.resolveConflict({
+            romId,
+            kind: item.kind,
+            fileName: item.fileName,
+            keep,
+          }),
+        );
+      }
+    },
+    onSuccess: () => play.mutate({}),
+  });
+  const busy = play.isPending || resolveAll.isPending;
+  const controls = { back: { label: 'Cancel', run: props.onCancel } };
+
+  if (block.type === 'bios') {
+    return (
+      <Dialog title={`${block.platformName} needs a BIOS file`} controls={controls}>
+        <p className={styles.dialogText}>
+          RetroArch needs these files to run {block.platformName} games, and they were not found:
+        </p>
+        <ul className={styles.dialogList}>
+          {block.missing.map((entry) => (
+            <li key={entry}>{entry}</li>
+          ))}
+        </ul>
+        <p className={styles.muted}>Put them in: {block.systemDir}</p>
+        <Focusable
+          className={styles.menuItem}
+          disabled={busy}
+          onPress={() => play.mutate({ ignoreMissingBios: true })}
+        >
+          Play anyway
+        </Focusable>
+        <Focusable className={styles.menuItem} preferred onPress={props.onCancel}>
+          Cancel
+        </Focusable>
+      </Dialog>
+    );
+  }
+
+  const [first] = block.conflicts;
+  return (
+    <Dialog title="Which save do you want to continue?" controls={controls}>
+      <p className={styles.dialogText}>
+        This game was played here and somewhere else since the last sync. The one you do not pick is
+        kept as a backup.
+      </p>
+      <Focusable
+        className={styles.menuItem}
+        preferred
+        disabled={busy}
+        onPress={() => resolveAll.mutate('local')}
+      >
+        Use this PC&apos;s save{describeLocal(first)}
+      </Focusable>
+      <Focusable
+        className={styles.menuItem}
+        disabled={busy}
+        onPress={() => resolveAll.mutate('server')}
+      >
+        Use the RomM save{describeServer(first)}
+      </Focusable>
+      <Focusable
+        className={styles.menuItem}
+        disabled={busy}
+        onPress={() => play.mutate({ ignoreConflicts: true })}
+      >
+        Decide later (play with this PC&apos;s save)
+      </Focusable>
+      {resolveAll.isError && <p className={styles.error}>{errorMessage(resolveAll.error)}</p>}
+    </Dialog>
+  );
+}
+
+function describeLocal(item: SyncItemResult | undefined): string {
+  const when = item?.conflict?.localModifiedAt;
+  return when ? ` (played ${formatWhen(when)})` : '';
+}
+
+function describeServer(item: SyncItemResult | undefined): string {
+  const detail = item?.conflict;
+  if (!detail?.serverUpdatedAt) return '';
+  const device = detail.serverDevice ? ` on ${detail.serverDevice}` : '';
+  return ` (played ${formatWhen(detail.serverUpdatedAt)}${device})`;
+}
+
 const SYNC_PROBLEM = {
   conflict: {
     title: 'Save conflict',
@@ -60,11 +170,11 @@ const SYNC_PROBLEM = {
   offline: {
     title: 'Not synced yet',
     message:
-      'The RomM server could not be reached, so your progress is only on this PC for now. It will upload the next time you play or sync this game.',
+      'The RomM server could not be reached, so your progress is only on this PC for now. It uploads by itself once the server is reachable again.',
   },
   error: {
     title: 'Save sync problem',
     message:
-      'Your progress is safe on this PC, but it could not be synced. Open the game page and choose "Sync saves" to try again.',
+      'Your progress is safe on this PC, but it could not be synced. The launcher will keep retrying; you can also choose "Sync saves" on the game page.',
   },
 } as const;

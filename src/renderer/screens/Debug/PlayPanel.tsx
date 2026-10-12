@@ -7,7 +7,7 @@ import styles from './Debug.module.css';
 export function PlayPanel({ romId }: { romId: number }) {
   const state = useLaunchState();
   // Failures also arrive through the launch state, which is what gets displayed.
-  const play = useMutation({ mutationFn: () => unwrap(window.romm.game.play(romId)) });
+  const play = useMutation({ mutationFn: () => unwrap(window.romm.game.play({ romId })) });
 
   const busy = ['downloading', 'starting', 'syncing', 'running'].includes(state.phase);
 
@@ -40,6 +40,10 @@ function describe(state: LaunchState): string {
       return state.stage === 'before-launch'
         ? 'Checking the server for newer saves…'
         : 'Uploading saves…';
+    case 'blocked':
+      return state.block.type === 'conflict'
+        ? 'Waiting for a save conflict to be resolved.'
+        : 'Waiting: a BIOS file is missing.';
     case 'running':
       return `ROM ${state.romId} is running in RetroArch (${state.core}).`;
     case 'exited':

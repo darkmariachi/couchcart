@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ConflictResolution, RomDetail, SyncReport } from '../../shared/ipc';
 import { errorMessage, unwrap } from '../api';
@@ -5,7 +6,8 @@ import { Focusable } from '../components/Focusable';
 import { Cover } from '../components/GameCard';
 import { Screen } from '../components/Screen';
 import ui from '../components/ui.module.css';
-import { useRomDetail } from '../hooks';
+import { formatSize, formatWhen, nextOption, shortCoreName } from '../format';
+import { useDownloads, useRomDetail } from '../hooks';
 import { useControls } from '../input/controls';
 import { useUi } from '../store/ui';
 import styles from './screens.module.css';
@@ -17,7 +19,7 @@ export function GameScreen({ romId }: { romId: number }) {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['library'] });
 
   // Progress and failures of play/download are shown by the app-wide launch overlay.
-  const play = useMutation({ mutationFn: () => unwrap(window.romm.game.play(romId)) });
+  const play = useMutation({ mutationFn: () => unwrap(window.romm.game.play({ romId })) });
   const download = useMutation({
     mutationFn: () => unwrap(window.romm.game.download(romId)),
     onSettled: refresh,
@@ -35,6 +37,27 @@ export function GameScreen({ romId }: { romId: number }) {
       unwrap(window.romm.saves.resolveConflict(resolution)),
     onSettled: refresh,
   });
+
+  const setCore = useMutation({
+    mutationFn: (core: string | null) => unwrap(window.romm.game.setCore({ romId, core })),
+    onSettled: refresh,
+  });
+  const cancelDownload = useMutation({
+    mutationFn: () => unwrap(window.romm.downloads.cancel(romId)),
+  });
+
+  const job = useDownloads().find(
+    (candidate) =>
+      candidate.romId === romId &&
+      (candidate.status === 'queued' || candidate.status === 'downloading'),
+  );
+  // The page shows "downloaded" as soon as the queue finishes this game.
+  const jobDone = useDownloads().some(
+    (candidate) => candidate.romId === romId && candidate.status === 'done',
+  );
+  useEffect(() => {
+    if (jobDone) void queryClient.invalidateQueries({ queryKey: ['library'] });
+  }, [jobDone, queryClient]);
 
   useControls({ back: { label: 'Back', run: pop } }, { level: 10 });
 
@@ -71,6 +94,12 @@ export function GameScreen({ romId }: { romId: number }) {
                 >
                   Delete local copy
                 </Focusable>
+              ) : job ? (
+                <Focusable variant="button" onPress={() => cancelDownload.mutate()}>
+                  {job.status === 'queued'
+                    ? 'Queued · cancel'
+                    : `Downloading ${job.totalBytes ? Math.round((job.receivedBytes / job.totalBytes) * 100) : 0}% · cancel`}
+                </Focusable>
               ) : (
                 <Focusable variant="button" onPress={() => download.mutate()}>
                   Download
@@ -79,6 +108,17 @@ export function GameScreen({ romId }: { romId: number }) {
               <Focusable variant="button" disabled={sync.isPending} onPress={() => sync.mutate()}>
                 {sync.isPending ? 'Syncing…' : 'Sync saves'}
               </Focusable>
+              {rom.coreOptions.length > 1 && (
+                <Focusable
+                  variant="button"
+                  onPress={() =>
+                    setCore.mutate(nextOption([null, ...rom.coreOptions], rom.coreOverride))
+                  }
+                >
+                  Core: {rom.core ? shortCoreName(rom.core) : 'none'}
+                  {rom.coreOverride ? '' : ' (automatic)'}
+                </Focusable>
+              )}
             </div>
 
             <SaveStatus
@@ -147,20 +187,4 @@ function SaveStatus(props: {
       })}
     </div>
   );
-}
-
-function formatSize(bytes: number): string {
-  const megabytes = bytes / 1024 / 1024;
-  return megabytes >= 1024
-    ? `${(megabytes / 1024).toFixed(1)} GB`
-    : `${Math.max(1, Math.round(megabytes))} MB`;
-}
-
-function formatWhen(iso: string): string {
-  const minutes = Math.round((Date.now() - Date.parse(iso)) / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  if (minutes < 24 * 60) return `${Math.round(minutes / 60)} h ago`;
-  const days = Math.round(minutes / 60 / 24);
-  return days === 1 ? 'yesterday' : `${days} days ago`;
 }

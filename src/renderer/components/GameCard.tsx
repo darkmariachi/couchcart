@@ -46,6 +46,11 @@ export function GameCard({ rom, focusKey, preferred, onOpen }: GameCardProps) {
       <div style={{ position: 'relative' }}>
         <Cover path={rom.coverPath} title={rom.name} />
         {rom.downloaded && <span className={styles.badge}>On this PC</span>}
+        {rom.syncStatus && rom.syncStatus !== 'synced' && (
+          <span className={`${styles.badge} ${styles.warnBadge}`}>
+            {rom.syncStatus === 'conflict' ? 'Save conflict' : 'Not synced'}
+          </span>
+        )}
       </div>
       <span className={styles.cardTitle}>{rom.name}</span>
     </Focusable>

@@ -297,3 +297,86 @@
   flex: 1;
   min-height: 0;
 }
+
+/* ---------- Dialog text ---------- */
+
+.dialogText {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.5;
+}
+
+.dialogList {
+  margin: 0;
+  padding-left: 1.4rem;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+/* ---------- Status chips in the footer ---------- */
+
+.footerStatus {
+  display: flex;
+  gap: 1rem;
+  margin-right: auto;
+}
+
+.chip {
+  padding: 0.2rem 0.8rem;
+  border-radius: 1rem;
+  background: var(--surface-2);
+  color: var(--romm-peach);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.warnBadge {
+  right: auto;
+  left: 0.4rem;
+  color: var(--romm-coral);
+}
+
+/* ---------- Settings and list rows ---------- */
+
+.rowGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 64rem;
+  margin-bottom: 1.8rem;
+}
+
+.rowGroupTitle {
+  margin: 0 0 0.3rem;
+  color: var(--romm-peach);
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.settingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  width: 100%;
+  padding: 0.8rem 1.2rem;
+  font-size: 1.1rem;
+  text-align: left;
+}
+
+.settingRow:focus {
+  /* A full-width row would visibly jump if it scaled like a card. */
+  transform: none;
+}
+
+.settingValue {
+  color: var(--romm-lavender);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  padding: 0 1.2rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
