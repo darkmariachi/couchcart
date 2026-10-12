@@ -1,101 +1,223 @@
 /* ---------- Home ---------- */
 
-.section {
+.stats {
+  display: flex;
+  gap: 1rem;
   margin-bottom: 1.6rem;
 }
 
-.sectionTitle {
-  margin: 0 0 0.6rem;
-  color: var(--romm-peach);
-  font-size: 1.3rem;
+.stat {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 11rem;
+}
+
+.statValue {
+  font-size: 1.7rem;
+  font-weight: 800;
+}
+
+.statLabel {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.section {
+  margin-bottom: 1.4rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.3rem;
+  color: var(--text-soft);
+  font-size: 1.15rem;
   font-weight: 600;
 }
 
 .shelf {
   display: flex;
-  gap: 1rem;
+  gap: 1.1rem;
   /* Padding gives the focus glow and the lift room inside the scroll container. */
-  padding: 0.8rem 0.6rem 1rem;
-  margin: 0 -0.6rem;
+  padding: 0.9rem 0.8rem 1.1rem;
+  margin: 0 -0.8rem;
   overflow-x: auto;
   scroll-padding: 3rem;
+  scrollbar-width: none;
+}
+
+.shelf::-webkit-scrollbar {
+  display: none;
 }
 
 .shelfItem {
-  flex: 0 0 11rem;
+  flex: 0 0 10.5rem;
   /* Without this a long title would stretch its card wider than the others. */
+  min-width: 0;
+}
+
+.shelfTile {
+  flex: 0 0 13rem;
   min-width: 0;
 }
 
 .moreCard {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.5rem;
   width: 100%;
-  height: 100%;
-  min-height: 12rem;
+  aspect-ratio: 3 / 4;
   padding: 1rem;
-  color: var(--romm-lavender);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   text-align: center;
 }
 
-/* ---------- Platform ---------- */
+/* ---------- Grids ---------- */
+
+.tileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 1.2rem;
+  padding: 0.6rem 0.2rem;
+}
 
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.8rem;
-  margin-bottom: 1rem;
+  gap: 0.7rem;
+  margin-bottom: 1.2rem;
+  padding: 0.3rem 0.2rem;
 }
 
-/* ---------- Game detail ---------- */
+.headerIcon {
+  width: 4.2rem;
+  height: 4.2rem;
+  object-fit: contain;
+  filter: drop-shadow(0 0.4rem 0.9rem rgba(0, 0, 0, 0.55));
+}
+
+/* ---------- Game page ---------- */
 
 .detail {
   display: grid;
-  grid-template-columns: 20rem 1fr;
-  gap: 2.5rem;
+  grid-template-columns: 21rem 1fr;
+  gap: 3rem;
   align-items: start;
+  padding-top: 0.5rem;
 }
 
-.facts {
+.detailCover {
+  border-radius: 0.8rem;
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.6);
+}
+
+.gameTitle {
+  margin: 0 0 0.7rem;
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.08;
+}
+
+.platformLine {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem 1.6rem;
-  margin: 0 0 1rem;
-  color: var(--text-muted);
-  font-size: 1.05rem;
+  gap: 0.6rem;
+  margin-bottom: 1.4rem;
+  color: var(--text-soft);
+  font-size: 1.1rem;
+  font-weight: 500;
 }
 
-.description {
-  max-width: 60rem;
-  margin: 0 0 1.4rem;
-  font-size: 1.1rem;
-  line-height: 1.55;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 6;
-  overflow: hidden;
+.platformLineIcon {
+  width: 1.8rem;
+  height: 1.8rem;
+  object-fit: contain;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.8rem;
+  margin-bottom: 1.6rem;
+}
+
+.playButton {
+  min-height: 3.4rem;
+  padding: 0 2.2rem;
+  font-size: 1.25rem;
+}
+
+.favoriteOn {
+  color: var(--romm-primary-light);
+}
+
+.description {
+  max-width: 60rem;
+  margin: 0 0 1.4rem;
+  color: var(--text-soft);
+  font-size: 1.1rem;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, max-content));
+  gap: 1rem 2.6rem;
+  max-width: 60rem;
   margin-bottom: 1.4rem;
+}
+
+.factValue {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.factLabel {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.screenshots {
+  display: flex;
+  gap: 0.8rem;
+  max-width: 60rem;
+  margin-bottom: 1.4rem;
+  overflow: hidden;
+}
+
+.screenshot {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 19rem;
+  aspect-ratio: 4 / 3;
+  border-radius: 0.6rem;
+  object-fit: cover;
 }
 
 .statusBox {
   max-width: 60rem;
-  padding: 1rem 1.2rem;
-  border-radius: 0.6rem;
-  background: var(--surface-1);
   font-size: 1.05rem;
 }
 
 .statusBox p {
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.5rem;
 }
 
 /* ---------- Setup wizard ---------- */
@@ -105,6 +227,7 @@
   flex-direction: column;
   gap: 1.2rem;
   max-width: 56rem;
+  color: var(--text-soft);
   font-size: 1.15rem;
   line-height: 1.5;
 }
@@ -120,13 +243,13 @@
 
 .stepDot {
   width: 2.4rem;
-  height: 0.35rem;
+  height: 0.3rem;
   border-radius: 0.2rem;
-  background: var(--surface-2);
+  background: var(--glass-border-strong);
 }
 
 .stepDone {
-  background: var(--romm-peach);
+  background: var(--romm-primary);
 }
 
 .field {
@@ -139,12 +262,20 @@
   text-align: left;
 }
 
+.field:focus {
+  transform: none;
+}
+
 .fieldLabel {
   color: var(--text-muted);
-  font-size: 0.95rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .fieldValue {
+  color: var(--text);
   font-size: 1.25rem;
   overflow-wrap: anywhere;
 }

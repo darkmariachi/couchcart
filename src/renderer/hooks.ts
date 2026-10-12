@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { DownloadJob, LaunchState } from '../shared/ipc';
+import type { DownloadJob, GridSource, LaunchState } from '../shared/ipc';
 import { unwrap } from './api';
 
 export function useAuthStatus() {
@@ -26,10 +26,25 @@ export function usePlatforms() {
   });
 }
 
-export function usePlatformRoms(platformId: number) {
+/** Every game of a platform, a collection or a search. */
+export function useGridRoms(source: GridSource) {
   return useQuery({
-    queryKey: ['library', 'platform', platformId],
-    queryFn: () => unwrap(window.romm.library.platformRoms(platformId)),
+    queryKey: ['library', 'grid', source],
+    queryFn: () => unwrap(window.romm.library.gridRoms(source)),
+  });
+}
+
+export function useRecentlyAdded() {
+  return useQuery({
+    queryKey: ['library', 'recentlyAdded'],
+    queryFn: () => unwrap(window.romm.library.recentlyAdded()),
+  });
+}
+
+export function useCollections() {
+  return useQuery({
+    queryKey: ['library', 'collections'],
+    queryFn: () => unwrap(window.romm.library.collections()),
   });
 }
 

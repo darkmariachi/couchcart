@@ -9,7 +9,9 @@ games.
 
 ## What it does
 
-- Browses your RomM platforms and games with cover art, by gamepad, keyboard or mouse.
+- Browses your RomM platforms, collections and favourites with cover art, by gamepad, keyboard
+  or mouse, in an interface modelled on RomM's own.
+- Searches your whole library.
 - Downloads a game the first time you play it and starts it in RetroArch with a suitable core.
 - Syncs saves and save states with RomM before a game starts and after it exits.
 - Keeps working offline for games that are already downloaded, and uploads progress later.
@@ -50,16 +52,36 @@ The setup wizard asks for:
 
 ## Controls
 
-| Controller         | Keyboard             | Action                                     |
-| ------------------ | -------------------- | ------------------------------------------ |
-| D-pad / left stick | Arrow keys           | Move                                       |
-| A                  | Enter                | Select                                     |
-| B                  | Esc or Backspace     | Back                                       |
-| X / Y              | X / Y                | Shown in the footer (search, sort, ...)    |
-| LB / RB            | Q / E or PgUp / PgDn | Previous / next platform                   |
-| Start              | F1                   | Menu (downloads, settings, sign out, exit) |
+| Controller         | Keyboard             | Action                                    |
+| ------------------ | -------------------- | ----------------------------------------- |
+| D-pad / left stick | Arrow keys           | Move                                      |
+| A                  | Enter                | Select                                    |
+| B                  | Esc or Backspace     | Back                                      |
+| X / Y              | X / Y                | Shown in the footer (search, sort, ...)   |
+| LB / RB            | Q / E or PgUp / PgDn | Previous / next platform                  |
+| Start              | F1                   | Menu (search, fullscreen, sign out, exit) |
 
 Text is entered with an on-screen keyboard; a physical keyboard types straight into it.
+
+The bar at the top switches between Home, Platforms, Collections, Downloads, Settings and
+Search: press up from the top row of any screen to reach it.
+
+The window has no title bar. Drag it by the top bar when windowed; close it with Start →
+Exit launcher.
+
+## Library
+
+- **Home** shows what you were playing, what was added recently, your platforms and your
+  collections.
+- **Collections** lists the collections you made in RomM, smart collections, and the ones RomM
+  builds from game metadata. Your favourites are a collection too.
+- **Favourites:** choose "Add to favourites" on a game's page. It is the same favourites list
+  RomM's web interface uses.
+- **Search** looks through the whole library. Inside a platform or collection, X filters just
+  that list.
+
+Artwork is not bundled with the launcher. Covers, screenshots, platform icons and the RomM
+logo are loaded from your own RomM server and kept on disk, so they also show offline.
 
 ### In a game
 
@@ -214,6 +236,10 @@ Install it, or point the launcher at `retroarch.exe` in Settings → RetroArch.
 **A game shows "Not synced" or "Save conflict".**
 "Not synced" clears by itself once the server is reachable; "Sync saves" on the game's page tries
 immediately. For a conflict, open the game's page and choose which save to keep.
+
+**Collections are empty, or favourites ask me to sign in again.**
+Sessions created by an older version of the launcher were not given access to collections.
+Sign out from the menu and sign in again.
 
 **I got signed out.**
 RomM sessions expire after about a week without use. Sign in again; nothing local is lost.

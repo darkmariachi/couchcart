@@ -32,10 +32,16 @@ export function focusedElement(): HTMLElement | null {
   return scope === document || scope.contains(active) ? active : null;
 }
 
-/** Focuses the preferred element of the current scope, or simply its first one. */
+/**
+ * Focuses the preferred element of the current scope, or simply its first one. Navigation
+ * chrome (`data-focus-chrome`) is passed over, so a screen opens with its content focused
+ * rather than the top bar.
+ */
 export function focusFirst(): boolean {
   const all = focusables();
-  const target = all.find((element) => element.hasAttribute('data-focus-default')) ?? all[0];
+  const content = all.filter((element) => !element.closest('[data-focus-chrome]'));
+  const target =
+    content.find((element) => element.hasAttribute('data-focus-default')) ?? content[0] ?? all[0];
   if (target) focus(target);
   return target !== undefined;
 }

@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from './api';
+import { Ambient } from './components/Ambient';
 import { MenuDialog, type MenuItem } from './components/Dialog';
 import { Footer } from './components/Footer';
 import { LaunchOverlay } from './components/LaunchOverlay';
+import { OnScreenKeyboard } from './components/OnScreenKeyboard';
+import { TopBar } from './components/TopBar';
 import ui from './components/ui.module.css';
 import {
   useAuthStatus,
@@ -14,11 +17,12 @@ import {
 } from './hooks';
 import { InputProvider } from './input/InputProvider';
 import { useControls } from './input/controls';
+import { CollectionsScreen, PlatformsScreen } from './screens/BrowseScreens';
 import { DebugScreen } from './screens/Debug/DebugScreen';
 import { DownloadsScreen } from './screens/DownloadsScreen';
 import { GameScreen } from './screens/GameScreen';
+import { GridScreen } from './screens/GridScreen';
 import { HomeScreen } from './screens/HomeScreen';
-import { PlatformScreen } from './screens/PlatformScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { SetupWizard } from './screens/SetupWizard';
 import { useCurrentEntry, useUi } from './store/ui';
@@ -41,6 +45,7 @@ function Shell() {
 
   const { push, reset } = useUi();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
   useControls({ start: { label: 'Menu', run: () => setMenuOpen(true) } }, { level: 0 });
 
   if (auth.isError || setup.isError) {
@@ -60,9 +65,7 @@ function Shell() {
   const menu: MenuItem[] = [
     ...(inLibrary
       ? [
-          { label: 'Home', run: reset },
-          { label: 'Downloads', run: () => push({ name: 'downloads' }) },
-          { label: 'Settings', run: () => push({ name: 'settings' }) },
+          { label: 'Search', run: () => setSearching(true) },
           { label: 'Debug tools', run: () => push({ name: 'debug' }) },
         ]
       : []),
@@ -73,28 +76,53 @@ function Shell() {
 
   return (
     <div className={ui.shell}>
+      <Ambient />
+      <TopBar
+        username={auth.data.username}
+        showNavigation={inLibrary}
+        onSearch={() => setSearching(true)}
+      />
       <div className={ui.shellBody}>
         {inLibrary ? (
-          <CurrentScreen username={auth.data.username} />
+          <CurrentScreen />
         ) : (
           <SetupWizard auth={auth.data} signInOnly={setup.data.complete} />
         )}
       </div>
       <Footer />
+
       {menuOpen && <MenuDialog title="Menu" items={menu} onClose={() => setMenuOpen(false)} />}
+      {searching && (
+        <OnScreenKeyboard
+          title="Search your library"
+          initialValue=""
+          onCancel={() => setSearching(false)}
+          onSubmit={(value) => {
+            setSearching(false);
+            const term = value.trim();
+            if (term) push({ name: 'grid', title: `“${term}”`, source: { type: 'search', term } });
+          }}
+        />
+      )}
       <LaunchOverlay state={launch} />
     </div>
   );
 }
 
-function CurrentScreen({ username }: { username: string | null }) {
+function CurrentScreen() {
   const { route } = useCurrentEntry();
   switch (route.name) {
     case 'home':
-      return <HomeScreen username={username} />;
-    case 'platform':
-      // Keyed so switching platform with LB/RB starts from a clean grid.
-      return <PlatformScreen key={route.platformId} platformId={route.platformId} />;
+      return <HomeScreen />;
+    case 'platforms':
+      return <PlatformsScreen />;
+    case 'collections':
+      return <CollectionsScreen />;
+    case 'grid':
+      // Keyed so switching platform with LB/RB, or searching again, starts a clean grid.
+      return (
+        <GridScreen key={JSON.stringify(route.source)} source={route.source} title={route.title} />
+      );
     case 'game':
       return <GameScreen key={route.romId} romId={route.romId} />;
     case 'settings':

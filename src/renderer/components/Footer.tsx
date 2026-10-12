@@ -11,7 +11,7 @@ const GLYPHS: Record<ControlButton, string> = {
   start: '☰',
 };
 
-/** Shows what each controller button does, plus connection and download status. */
+/** Floats over the bottom of every screen: connection and download status, button hints. */
 export function Footer() {
   const hints = useHints();
   const online = useOnline();
@@ -35,14 +35,16 @@ export function Footer() {
           </span>
         )}
       </div>
-      <span className={styles.hint}>
-        <span className={styles.glyph}>A</span> Select
-      </span>
-      {hints.map((hint) => (
-        <span key={hint.button} className={styles.hint}>
-          <span className={styles.glyph}>{GLYPHS[hint.button]}</span> {hint.label}
+      <div className={styles.hints}>
+        <span className={styles.hint}>
+          <span className={styles.glyph}>A</span> Select
         </span>
-      ))}
+        {hints.map((hint) => (
+          <span key={hint.button} className={styles.hint}>
+            <span className={styles.glyph}>{GLYPHS[hint.button]}</span> {hint.label}
+          </span>
+        ))}
+      </div>
     </footer>
   );
 }

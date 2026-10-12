@@ -1,23 +1,52 @@
 :root {
-  /* RomM's palette, used as accents on a dark base. */
-  --romm-deep-purple: #38286a;
-  --romm-purple: #553f99;
-  --romm-lavender: #bda5cf;
-  --romm-light: #ede4f1;
-  --romm-peach: #e5c7a7;
-  --romm-coral: #e1a38e;
+  /* RomM's dark theme. */
+  --romm-primary: #8b74e8;
+  --romm-primary-light: #a18fff;
+  --romm-primary-dark: #6043c8;
+  --romm-secondary: #9e8cd6;
+  --romm-accent: #e1a38d;
+  --romm-green: #3fb950;
+  --romm-red: #da3633;
+  --romm-gold: #ffd700;
 
-  --surface-0: #150f26;
-  --surface-1: #1f1638;
-  --surface-2: #2a1e4d;
-  --border: #46357f;
-  --text: var(--romm-light);
-  --text-muted: var(--romm-lavender);
+  --background: #07070f;
+  --text: #ffffff;
+  --text-soft: rgba(255, 255, 255, 0.83);
+  --text-muted: rgba(255, 255, 255, 0.55);
+
+  /* "Glass": translucent panels over the blurred artwork behind everything. */
+  --glass: rgba(255, 255, 255, 0.043);
+  --glass-strong: rgba(255, 255, 255, 0.07);
+  --glass-hover: rgba(255, 255, 255, 0.12);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --glass-border-strong: rgba(255, 255, 255, 0.15);
+  --panel: #12131c;
+
+  --radius: 0.75rem;
+  --focus-ring: 0 0 0 0.2rem var(--romm-primary-light), 0 0 2rem rgba(139, 116, 232, 0.55);
+
+  /* Names the mouse-only debug screen still uses. */
+  --surface-0: var(--background);
+  --surface-1: var(--panel);
+  --surface-2: var(--glass-strong);
+  --border: var(--glass-border-strong);
+  --romm-peach: var(--romm-accent);
+  --romm-lavender: var(--text-soft);
+  --romm-purple: var(--romm-primary-dark);
+  --romm-deep-purple: var(--glass-strong);
+
   --danger: #ff8f8f;
-  --ok: #9be2a8;
+  --ok: #6fdc8c;
 
   color-scheme: dark;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family:
+    'Segoe UI',
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui,
+    Inter,
+    Roboto,
+    sans-serif;
   /* Everything is sized in rem, so the whole UI scales with the screen: about 20px on a
      1080p TV and 40px on a 4K one, which keeps text readable from a couch on both. */
   font-size: clamp(14px, 1.05vw, 44px);
@@ -36,7 +65,7 @@ body,
 body {
   margin: 0;
   overflow: hidden;
-  background: var(--surface-0);
+  background: var(--background);
   color: var(--text);
 }
 
@@ -47,16 +76,20 @@ input {
 }
 
 :focus-visible {
-  outline: 0.2rem solid var(--romm-peach);
+  outline: 0.15rem solid var(--romm-primary-light);
   outline-offset: 0.15rem;
 }
 
 ::-webkit-scrollbar {
-  width: 0.5rem;
-  height: 0.5rem;
+  width: 0.4rem;
+  height: 0.4rem;
 }
 
 ::-webkit-scrollbar-thumb {
-  border-radius: 0.25rem;
-  background: var(--border);
+  border-radius: 0.2rem;
+  background: var(--glass-border-strong);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }

@@ -9,6 +9,8 @@ interface FocusableProps {
   /** Gets focus first when the screen opens. */
   preferred?: boolean;
   disabled?: boolean;
+  /** Image the blurred background switches to while this has focus. */
+  ambient?: string | null;
   className?: string;
   variant?: 'plain' | 'button' | 'primary';
 }
@@ -20,6 +22,7 @@ export function Focusable({
   focusKey,
   preferred,
   disabled,
+  ambient,
   className,
   variant = 'plain',
 }: FocusableProps) {
@@ -36,6 +39,7 @@ export function Focusable({
       data-focusable=""
       data-focus-key={focusKey}
       data-focus-default={preferred ? '' : undefined}
+      data-ambient={ambient ?? undefined}
       disabled={disabled}
       onClick={onPress}
     >
