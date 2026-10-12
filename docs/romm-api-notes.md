@@ -91,11 +91,16 @@ comes back as `upload`, so the launcher must always send a stable slot name. It 
 - `GET /api/firmware?platform_id=` and `GET /api/firmware/{id}/content/{file_name}`: BIOS files hosted by RomM.
 - `POST /api/play-sessions`, `PUT /api/roms/{id}/props?update_last_played=true`: play tracking.
 
-## Open questions
+## Verified against a live 5.4.0 server
 
-Answered by the "API probe" button on the debug screen (read-only):
+Found with the "API probe" button on the debug screen (read-only) and an end-to-end launch:
 
-- Token lifetimes.
-- How cover paths map to URLs and whether they need the bearer token.
-- Whether ROM downloads honour `Range` (resume).
-- Which algorithm `content_hash` uses.
+- **Tokens**: the access token lasts about 30 minutes, the refresh token about 7 days. After
+  7 days without use the user has to log in again.
+- **Covers**: `path_cover_small` is already a server-relative URL
+  (`/assets/romm/resources/roms/<platform>/<rom>/cover/small.png?ts=...`). Append it to the
+  server URL as-is. It was served without a bearer token.
+- **Resume**: ROM downloads honour `Range` (206 with `Content-Range`), although the response
+  carries no `Accept-Ranges` header.
+- **ROM hash**: `md5_hash` on a single-file ROM is the MD5 of the file as downloaded.
+- **Save hash**: `content_hash` on a save is the MD5 of the save file.
