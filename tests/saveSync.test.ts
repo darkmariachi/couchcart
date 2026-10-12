@@ -156,7 +156,7 @@ const itemFor = (items: SyncItemResult[], fileName: string) =>
   items.find((item) => item.fileName === fileName);
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'romm-launcher-sync-'));
+  dir = mkdtempSync(join(tmpdir(), 'couchcart-sync-'));
   mkdirSync(savesDir(), { recursive: true });
   mkdirSync(statesDir(), { recursive: true });
   remote = new FakeRemote();

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   mdiAccountCircle,
   mdiBookmark,
@@ -8,10 +7,11 @@ import {
   mdiHome,
   mdiMagnify,
 } from '@mdi/js';
-import { ROMM_LOGO_PATH, assetUrl } from '../assets';
+import { APP_NAME } from '../../shared/app';
 import { useSection, useUi, type Route } from '../store/ui';
 import { Focusable } from './Focusable';
 import { Icon } from './Icon';
+import { Logo } from './Logo';
 import styles from './ui.module.css';
 
 interface Section {
@@ -42,25 +42,16 @@ interface TopBarProps {
   showNavigation: boolean;
 }
 
-/** RomM-style header: logo, pill navigation, and who is signed in. */
+/** The header: logo, pill navigation, and who is signed in. */
 export function TopBar({ username, showNavigation }: TopBarProps) {
   const goTo = useUi((state) => state.goTo);
   const section = useSection();
-  const [logoFailed, setLogoFailed] = useState(false);
 
   return (
     <header className={styles.topBar}>
       <div className={styles.brand}>
-        {/* The logo comes from the RomM server, so it only appears once signed in. */}
-        {username && !logoFailed && (
-          <img
-            className={styles.brandLogo}
-            src={assetUrl(ROMM_LOGO_PATH)}
-            alt=""
-            onError={() => setLogoFailed(true)}
-          />
-        )}
-        ROMM
+        <Logo className={styles.brandLogo} />
+        {APP_NAME.toUpperCase()}
       </div>
 
       {showNavigation ? (

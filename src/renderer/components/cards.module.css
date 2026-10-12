@@ -30,7 +30,7 @@
 }
 
 .tileInitial {
-  color: var(--romm-primary-light);
+  color: var(--brand-light);
   font-size: 3.4rem;
   font-weight: 800;
 }

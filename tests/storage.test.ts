@@ -9,7 +9,7 @@ import { SettingsStore } from '../src/main/settings/store';
 
 let dir: string;
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'romm-launcher-test-'));
+  dir = mkdtempSync(join(tmpdir(), 'couchcart-test-'));
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 

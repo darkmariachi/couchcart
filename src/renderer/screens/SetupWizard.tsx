@@ -106,10 +106,13 @@ function ServerStep(props: StepProps & { serverUrl: string; onChange: (url: stri
     mutationFn: () => unwrap(window.romm.server.probe(props.serverUrl)),
     onSuccess: props.onNext,
   });
+  const discover = useMutation({
+    mutationFn: () => unwrap(window.romm.server.discover()),
+  });
 
   return (
     <>
-      <p>Enter the address you use to open RomM in a browser.</p>
+      <p>Enter the address you use to open RomM in a browser, or let the launcher look for it.</p>
       <Field
         label="Server address"
         value={props.serverUrl}
@@ -125,7 +128,33 @@ function ServerStep(props: StepProps & { serverUrl: string; onChange: (url: stri
         >
           {probe.isPending ? 'Connecting…' : 'Connect'}
         </Focusable>
+        <Focusable
+          variant="button"
+          preferred={props.serverUrl === ''}
+          disabled={discover.isPending}
+          onPress={() => discover.mutate()}
+        >
+          {discover.isPending ? 'Looking on your network…' : 'Find my server'}
+        </Focusable>
       </div>
+
+      {discover.data?.map((server) => (
+        <Focusable
+          key={server.url}
+          className={styles.field}
+          onPress={() => props.onChange(server.url)}
+        >
+          <span className={styles.fieldLabel}>Found RomM {server.version}</span>
+          <span className={styles.fieldValue}>{server.url}</span>
+        </Focusable>
+      ))}
+      {discover.data?.length === 0 && (
+        <p className={ui.muted}>
+          No RomM server answered on port 8080 on this network. If yours uses another port, or sits
+          behind a web address, type that address instead.
+        </p>
+      )}
+      {discover.isError && <p className={ui.error}>{errorMessage(discover.error)}</p>}
       {probe.isError && <p className={ui.error}>{errorMessage(probe.error)}</p>}
     </>
   );

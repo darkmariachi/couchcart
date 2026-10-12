@@ -1,8 +1,11 @@
 import { spawn } from 'node:child_process';
+import { networkInterfaces } from 'node:os';
 import { readdir, stat, statfs } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { APP_ID, LEGACY_APP_ID } from '../shared/app';
 import type {
   AccountOverview,
+  DiscoveredServer,
   ExternalLink,
   AuthStatus,
   CollectionSummary,
@@ -54,6 +57,7 @@ import {
   type SimpleRom,
 } from './romm/client';
 import { CredentialStore, type Encryptor } from './romm/credentials';
+import { discoverServers } from './romm/discovery';
 import { LauncherError } from './errors';
 import { NetworkError, NotAuthenticatedError, RommApiError } from './romm/errors';
 import { SaveBackups } from './saves/backups';
@@ -224,6 +228,11 @@ export class LauncherApp {
     return probeServer(normalizeServerUrl(serverUrl));
   }
 
+  /** Looks for RomM servers on the local network. */
+  discoverServers(): Promise<DiscoveredServer[]> {
+    return discoverServers({ interfaces: networkInterfaces() });
+  }
+
   status(): AuthStatus {
     const { serverUrl, username } = this.settings.get();
     const loggedIn = this.connection?.auth.isLoggedIn ?? false;
@@ -303,7 +312,7 @@ export class LauncherApp {
           isThisDevice:
             device.id === settings.deviceId ||
             (settings.deviceId === null &&
-              device.client === 'romm-launcher' &&
+              (device.client === APP_ID || device.client === LEGACY_APP_ID) &&
               device.hostname === this.options.hostname),
         }))
         .sort(

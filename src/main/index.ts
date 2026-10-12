@@ -1,3 +1,4 @@
+import { existsSync, renameSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -12,6 +13,7 @@ import {
   shell,
   type IpcMainInvokeEvent,
 } from 'electron';
+import { APP_ID, APP_NAME, LEGACY_APP_ID } from '../shared/app';
 import type { IpcEvents, LaunchState } from '../shared/ipc';
 import { registerIpcHandlers } from './ipc/handlers';
 import { LauncherApp } from './launcherApp';
@@ -27,7 +29,24 @@ const rendererOrigin = devServerUrl ?? pathToFileURL(rendererFile).href;
 // The data folder is fixed by name, so the installed app, the portable build and a
 // development run all share one library, session and set of saves.
 if (!process.argv.some((argument) => argument.startsWith('--user-data-dir'))) {
-  app.setPath('userData', join(app.getPath('appData'), 'romm-launcher'));
+  app.setPath('userData', resolveDataDir(app.getPath('appData')));
+}
+
+/**
+ * The app's data folder. A folder from before the app was renamed is taken over, so an
+ * upgrade keeps the session, library and saves; if it cannot be moved (another copy of
+ * the app has it open), it is used where it is.
+ */
+function resolveDataDir(appData: string): string {
+  const current = join(appData, APP_ID);
+  const legacy = join(appData, LEGACY_APP_ID);
+  if (existsSync(current) || !existsSync(legacy)) return current;
+  try {
+    renameSync(legacy, current);
+    return current;
+  } catch {
+    return legacy;
+  }
 }
 
 // Must happen before the app is ready. "standard" gives the scheme normal URL parsing and
@@ -156,6 +175,6 @@ if (!app.requestSingleInstanceLock()) {
     launcher.start();
     app.on('before-quit', () => launcher.stop());
     mainWindow = createWindow(shouldStartFullscreen(launcher.launcherFullscreen));
-    log.info(`RomM Launcher ${app.getVersion()} started`);
+    log.info(`${APP_NAME} ${app.getVersion()} started`);
   });
 }

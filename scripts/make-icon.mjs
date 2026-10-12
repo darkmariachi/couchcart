@@ -1,4 +1,5 @@
-// Draws the app icon (a play triangle on RomM purple) into build/icon.png.
+// Draws the app icon (a white game cartridge with a play button, on teal) into
+// build/icon.png. The same mark, as SVG, is src/renderer/components/Logo.tsx.
 // Plain Node, no image library: electron-builder turns the PNG into the Windows .ico.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
@@ -6,9 +7,10 @@ import { deflateSync } from 'node:zlib';
 const SIZE = 512;
 const SAMPLES = 3; // per axis, for smooth edges
 
-const BACKGROUND_TOP = [0x55, 0x3f, 0x99];
-const BACKGROUND_BOTTOM = [0x38, 0x28, 0x6a];
-const TRIANGLE = [0xe5, 0xc7, 0xa7];
+const BACKGROUND_TOP = [0x3f, 0xd6, 0xc8];
+const BACKGROUND_BOTTOM = [0x17, 0x8f, 0x86];
+const CARTRIDGE = [0xff, 0xff, 0xff];
+const TRIANGLE = [0x17, 0x8f, 0x86];
 
 const CORNER = SIZE * 0.22;
 const insideRoundedSquare = (x, y) => {
@@ -17,10 +19,19 @@ const insideRoundedSquare = (x, y) => {
   return dx * dx + dy * dy <= CORNER * CORNER;
 };
 
-// A right-pointing triangle, nudged right so it looks centred.
-const A = [SIZE * 0.39, SIZE * 0.28];
-const B = [SIZE * 0.39, SIZE * 0.72];
-const C = [SIZE * 0.74, SIZE * 0.5];
+// The cartridge: a body, and a narrower connector underneath it.
+const insideCartridge = (x, y) => {
+  const u = x / SIZE;
+  const v = y / SIZE;
+  const body = u >= 0.22 && u <= 0.78 && v >= 0.19 && v <= 0.735;
+  const connector = u >= 0.36 && u <= 0.64 && v >= 0.735 && v <= 0.845;
+  return body || connector;
+};
+
+// A right-pointing triangle on the cartridge, nudged right so it looks centred.
+const A = [SIZE * 0.42, SIZE * 0.33];
+const B = [SIZE * 0.42, SIZE * 0.61];
+const C = [SIZE * 0.655, SIZE * 0.47];
 const side = (p, q, x, y) => (q[0] - p[0]) * (y - p[1]) - (q[1] - p[1]) * (x - p[0]);
 const insideTriangle = (x, y) => {
   const d1 = side(A, B, x, y);
@@ -46,7 +57,9 @@ for (let y = 0; y < SIZE; y++) {
         const blend = py / SIZE;
         const color = insideTriangle(px, py)
           ? TRIANGLE
-          : BACKGROUND_TOP.map((top, i) => top + (BACKGROUND_BOTTOM[i] - top) * blend);
+          : insideCartridge(px, py)
+            ? CARTRIDGE
+            : BACKGROUND_TOP.map((top, i) => top + (BACKGROUND_BOTTOM[i] - top) * blend);
         red += color[0];
         green += color[1];
         blue += color[2];

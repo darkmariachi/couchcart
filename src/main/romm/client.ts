@@ -1,4 +1,5 @@
 import createClient, { type Client } from 'openapi-fetch';
+import { APP_ID } from '../../shared/app';
 import { NetworkError, RommApiError, describeErrorBody } from './errors';
 import { paginate } from './pagination';
 import type { components, paths } from './schema';
@@ -237,7 +238,7 @@ export class RommClient {
           name: device.name,
           hostname: device.hostname,
           platform: device.platform,
-          client: 'romm-launcher',
+          client: APP_ID,
           client_version: device.clientVersion,
           // Reuse this PC's existing registration instead of creating a duplicate.
           allow_existing: true,

@@ -56,7 +56,7 @@ function goOffline(): void {
 }
 
 beforeEach(async () => {
-  dir = mkdtempSync(join(tmpdir(), 'romm-launcher-offline-'));
+  dir = mkdtempSync(join(tmpdir(), 'couchcart-offline-'));
   onlineEvents = [];
   fake.roms = [1, 2, 3].map((id) => romFixture(id));
   app = createApp();

@@ -18,6 +18,7 @@ const gamepadCombo = z.enum(['keep', 'none', 'hold_start', 'hold_select', 'start
 // The renderer is treated as untrusted input: every request is validated before use.
 const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
   'server:probe': serverUrl,
+  'server:discover': noRequest,
   'auth:status': noRequest,
   'auth:login': z.object({
     serverUrl,
@@ -118,6 +119,7 @@ export function registerIpcHandlers(
 ): void {
   const handlers: Handlers = {
     'server:probe': (url) => app.probeServer(url),
+    'server:discover': () => app.discoverServers(),
     'auth:status': () => app.status(),
     'auth:login': (request) => app.login(request),
     'auth:logout': () => app.logout(),

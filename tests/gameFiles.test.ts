@@ -29,7 +29,7 @@ let dir: string;
 let paths: DataPaths;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'romm-launcher-files-'));
+  dir = mkdtempSync(join(tmpdir(), 'couchcart-files-'));
   paths = new DataPaths(dir, () => null);
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));

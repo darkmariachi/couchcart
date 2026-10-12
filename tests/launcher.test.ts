@@ -279,7 +279,7 @@ describe('LaunchService', () => {
     service.play({ romId: rom.id, ...options });
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'romm-launcher-launch-'));
+    dir = mkdtempSync(join(tmpdir(), 'couchcart-launch-'));
     states = [];
     syncSaves.mockClear();
     markPlayed.mockClear();

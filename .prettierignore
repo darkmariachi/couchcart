@@ -4,3 +4,4 @@ node_modules/
 package-lock.json
 docs/romm-openapi.json
 src/main/romm/schema.d.ts
+THIRD_PARTY_NOTICES.md

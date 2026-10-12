@@ -117,7 +117,7 @@
       rgba(7, 7, 15, 0.7) 72%,
       rgba(7, 7, 15, 0.92) 100%
     ),
-    radial-gradient(120% 80% at 20% 0%, rgba(96, 67, 200, 0.28), transparent 60%);
+    radial-gradient(120% 80% at 20% 0%, rgba(26, 143, 133, 0.28), transparent 60%);
 }
 
 /* ---------- Top bar ---------- */
@@ -136,7 +136,7 @@
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  color: var(--romm-primary);
+  color: var(--brand);
   font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -285,8 +285,8 @@
 
 /* A pill that is lit up, e.g. a controller button being held. */
 .pillActive {
-  border-color: var(--romm-primary-light);
-  background: var(--romm-primary);
+  border-color: var(--brand-light);
+  background: var(--brand);
   color: #fff;
 }
 
@@ -349,7 +349,7 @@
   border-radius: 100px;
   background: rgba(18, 19, 28, 0.78);
   backdrop-filter: blur(20px);
-  color: var(--romm-accent);
+  color: var(--accent);
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -362,7 +362,7 @@
   aspect-ratio: 3 / 4;
   overflow: hidden;
   border-radius: 0.6rem;
-  background: linear-gradient(150deg, #4a3792 0%, #4a3792 55%, #c98b78 55%, #c98b78 100%);
+  background: linear-gradient(150deg, #14605c 0%, #14605c 55%, #c98a4b 55%, #c98a4b 100%);
 }
 
 .coverImage {
@@ -438,7 +438,7 @@
 .warnBadge {
   right: auto;
   left: 0.4rem;
-  color: var(--romm-accent);
+  color: var(--accent);
 }
 
 .platformBadge {
@@ -549,7 +549,7 @@
 .progressBar {
   height: 100%;
   border-radius: 0.3rem;
-  background: var(--romm-primary);
+  background: var(--brand);
   transition: width 200ms linear;
 }
 
@@ -570,7 +570,7 @@
   width: 0.12rem;
   height: 1.4rem;
   margin-left: 0.1rem;
-  background: var(--romm-primary-light);
+  background: var(--brand-light);
   vertical-align: text-bottom;
   animation: blink 1s steps(1) infinite;
 }
@@ -701,7 +701,7 @@
   gap: 0.3rem;
   margin: 0 0 0.4rem 1.6rem;
   padding-left: 0.9rem;
-  border-left: 0.12rem solid var(--romm-primary);
+  border-left: 0.12rem solid var(--brand);
 }
 
 .option {
@@ -723,5 +723,15 @@
 .optionMark {
   display: inline-flex;
   width: 1.4rem;
-  color: var(--romm-primary-light);
+  color: var(--brand-light);
+}
+
+/* The app's mark on a game without cover art. */
+.coverMark {
+  position: absolute;
+  top: 26%;
+  left: 50%;
+  width: 42%;
+  opacity: 0.9;
+  transform: translateX(-50%);
 }

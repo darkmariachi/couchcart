@@ -36,7 +36,7 @@ function put(path: string, content: string, ageSeconds = 0): void {
 const scan = () => findImportCandidates(sources, roms, paths);
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'romm-launcher-import-'));
+  dir = mkdtempSync(join(tmpdir(), 'couchcart-import-'));
   retroarch = join(dir, 'RetroArch');
   sources = { saves: join(retroarch, 'saves'), states: join(retroarch, 'states') };
   paths = new DataPaths(join(dir, 'launcher'), () => null);

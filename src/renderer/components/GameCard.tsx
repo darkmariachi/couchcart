@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { CollectionSummary, PlatformSummary, RomSummary } from '../../shared/ipc';
-import { MISSING_COVER_PATH, assetUrl } from '../assets';
+import { assetUrl } from '../assets';
 import { Focusable } from './Focusable';
 import { PlatformIcon } from './Icon';
+import { Logo } from './Logo';
 import styles from './ui.module.css';
 import cards from './cards.module.css';
 
@@ -21,7 +22,7 @@ export function Cover({ path, title }: { path: string | null; title: string }) {
         />
       ) : (
         <>
-          <img className={styles.coverImage} src={assetUrl(MISSING_COVER_PATH)} alt="" />
+          <Logo className={styles.coverMark} />
           <div className={styles.coverFallback}>{title}</div>
         </>
       )}

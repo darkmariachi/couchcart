@@ -1,7 +1,7 @@
 {
-  "name": "romm-launcher",
+  "name": "couchcart",
   "version": "0.1.0",
-  "description": "Couch-friendly launcher and save-sync client for RomM, using RetroArch for emulation",
+  "description": "Couchcart: a couch-friendly launcher and save-sync client for RomM libraries, using RetroArch for emulation",
   "private": true,
   "main": "./out/main/index.js",
   "scripts": {
@@ -15,7 +15,8 @@
     "api:fetch": "node scripts/fetch-openapi.mjs",
     "api:types": "openapi-typescript docs/romm-openapi.json -o src/main/romm/schema.d.ts",
     "icon": "node scripts/make-icon.mjs",
-    "dist": "electron-vite build && electron-builder --win --publish never"
+    "dist": "electron-vite build && electron-builder --win --publish never",
+    "notices": "node scripts/third-party-notices.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -44,5 +45,6 @@
     "zod": "^4.6.6",
     "zustand": "^5.0.15"
   },
-  "author": "RomM Launcher contributors"
+  "author": "Couchcart contributors",
+  "license": "MIT"
 }

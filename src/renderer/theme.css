@@ -1,13 +1,13 @@
 :root {
-  /* RomM's dark theme. */
-  --romm-primary: #8b74e8;
-  --romm-primary-light: #a18fff;
-  --romm-primary-dark: #6043c8;
-  --romm-secondary: #9e8cd6;
-  --romm-accent: #e1a38d;
-  --romm-green: #3fb950;
-  --romm-red: #da3633;
-  --romm-gold: #ffd700;
+  /* Brand colours: teal with a warm amber accent. */
+  --brand: #2ec4b6;
+  --brand-light: #6fe3d6;
+  --brand-dark: #1a8f85;
+  --brand-soft: #8fd3cc;
+  --accent: #ffb86b;
+  --green: #3fb950;
+  --red: #da3633;
+  --gold: #ffd700;
 
   --background: #07070f;
   --text: #ffffff;
@@ -23,7 +23,7 @@
   --panel: #12131c;
 
   --radius: 0.75rem;
-  --focus-ring: 0 0 0 0.2rem var(--romm-primary-light), 0 0 2rem rgba(139, 116, 232, 0.55);
+  --focus-ring: 0 0 0 0.2rem var(--brand-light), 0 0 2rem rgba(46, 196, 182, 0.55);
 
   --danger: #ff8f8f;
   --ok: #6fdc8c;
@@ -66,7 +66,7 @@ input {
 }
 
 :focus-visible {
-  outline: 0.15rem solid var(--romm-primary-light);
+  outline: 0.15rem solid var(--brand-light);
   outline-offset: 0.15rem;
 }
 

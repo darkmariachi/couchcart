@@ -1,4 +1,4 @@
-# RomM Launcher
+# Couchcart
 
 A couch-friendly desktop launcher for a self-hosted [RomM](https://romm.app) library. Browse your
 games with a controller, press Play, and carry on from the same save on any PC.
@@ -10,7 +10,7 @@ games.
 ## What it does
 
 - Browses your RomM platforms, collections and favourites with cover art, by gamepad, keyboard
-  or mouse, in an interface modelled on RomM's own.
+  or mouse, in an interface made for a TV.
 - Searches your whole library.
 - Downloads a game the first time you play it and starts it in RetroArch with a suitable core.
 - Syncs saves and save states with RomM before a game starts and after it exits.
@@ -27,8 +27,8 @@ games.
 
 Download one of the two files from a release, or build them yourself (see [Building](#building)):
 
-- `RomM-Launcher-<version>-setup.exe` installs for the current user and adds a Start menu entry.
-- `RomM-Launcher-<version>-portable.exe` runs without installing.
+- `Couchcart-<version>-setup.exe` installs for the current user and adds a Start menu entry.
+- `Couchcart-<version>-portable.exe` runs without installing.
 
 The builds are not code-signed, so Windows SmartScreen shows a warning the first time. Choose
 "More info", then "Run anyway".
@@ -40,7 +40,9 @@ without setting anything up again.
 
 The setup wizard asks for:
 
-1. **Your RomM address**, for example `https://romm.example.lan`.
+1. **Your RomM address**, for example `https://romm.example.lan`. "Find my server" looks for
+   RomM on your network, on its default port (8080). A server on another port, or behind a web
+   address, has to be typed in.
 2. **Your RomM username and password.** Only a session token is stored, encrypted by Windows.
    The password is never saved.
 3. **RetroArch.** It is found automatically in the usual places, including Steam libraries. The
@@ -87,8 +89,8 @@ Exit launcher.
   devices that sync with RomM, and has a controller test, sign out and exit. The controller
   test shows live what each controller sends; hold B for a second to close it.
 
-Artwork is not bundled with the launcher. Covers, screenshots, platform icons and the RomM
-logo are loaded from your own RomM server and kept on disk, so they also show offline.
+Game artwork is not bundled with the launcher. Covers, screenshots and platform icons are
+loaded from your own RomM server and kept on disk, so they also show offline.
 
 ### In a game
 
@@ -151,8 +153,8 @@ RetroArch menu.
 ## Adding it to Steam
 
 1. In Steam: **Games → Add a Non-Steam Game to My Library → Browse**, and pick the launcher. The
-   installer puts it in `%LOCALAPPDATA%\Programs\RomM Launcher\RomM Launcher.exe`.
-2. Right-click the new entry → **Properties**. Set the name to "RomM Launcher" and, if you want to
+   installer puts it in `%LOCALAPPDATA%\Programs\Couchcart\Couchcart.exe`.
+2. Right-click the new entry → **Properties**. Set the name to "Couchcart" and, if you want to
    force it, the launch options to `--fullscreen` (use `--windowed` for the opposite).
 3. Start it from Big Picture like any other game.
 
@@ -197,19 +199,23 @@ are in `config/bios.default.json`.
 
 ## Where things are stored
 
-Everything lives in `%APPDATA%\romm-launcher` (`~/.config/romm-launcher` on Linux):
+Everything lives in `%APPDATA%\couchcart` (`~/.config/couchcart` on Linux):
 
-| Path                 | Contents                                                         |
-| -------------------- | ---------------------------------------------------------------- |
-| `settings.json`      | Settings                                                         |
-| `credentials.bin`    | Session token, encrypted by the operating system                 |
-| `roms/<platform>/`   | Downloaded games (movable in Settings)                           |
-| `saves/<platform>/`  | Game saves                                                       |
-| `states/<platform>/` | Save states                                                      |
-| `save-backups/`      | Backups made before any save was replaced or removed             |
-| `covers/`            | Cover art                                                        |
-| `sync.db`            | What was last synced, and the remembered library for offline use |
-| `logs/launcher.log`  | Log files (five files of 1 MB at most)                           |
+| Path                            | Contents                                              |
+| ------------------------------- | ----------------------------------------------------- |
+| `settings.json`                 | Settings                                              |
+| `credentials.bin`               | Session token, encrypted by the operating system      |
+| `roms/<platform>/`              | Downloaded games (movable in Settings)                |
+| `covers/`                       | Cover art and platform icons                          |
+| `logs/launcher.log`             | Log files (five files of 1 MB at most)                |
+| `accounts/<user>/saves/`        | Game saves, per platform                              |
+| `accounts/<user>/states/`       | Save states, per platform                             |
+| `accounts/<user>/save-backups/` | Backups made before any save was replaced or removed  |
+| `accounts/<user>/sync.db`       | What was last synced, and the library for offline use |
+
+Saves belong to an account: each RomM user on each server gets a folder under `accounts`, so
+two people sharing a PC never see or upload each other's progress. Downloaded games and artwork
+are shared.
 
 Your own RetroArch configuration is not modified. For each session the launcher passes a few
 settings on top of it:
@@ -258,6 +264,17 @@ Covers are saved the first time they are shown. Delete the `covers` folder to fe
 Settings → This device → "Copy recent log" puts the log on the clipboard. Logs never contain your
 password or session token.
 
+## Relationship to other projects
+
+Couchcart is an independent project. It is not affiliated with, or endorsed by, RomM, RetroArch
+or libretro, or any console maker. It contains none of their code, artwork or logos: it talks to
+a RomM server you run through RomM's public API, and starts a RetroArch you installed yourself.
+It includes no games, BIOS files or emulator cores.
+
+- Privacy: see [PRIVACY.md](PRIVACY.md). There is no telemetry.
+- Licence: MIT, see [LICENSE](LICENSE). Bundled software is listed in
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Development
 
 Requires Node 22 or newer.
@@ -277,6 +294,7 @@ npm run dev
 | `npm run api:fetch -- <url>`         | Download the OpenAPI spec from a RomM instance       |
 | `npm run api:types`                  | Regenerate `src/main/romm/schema.d.ts` from the spec |
 | `npm run icon`                       | Regenerate `build/icon.png`                          |
+| `npm run notices`                    | Regenerate `THIRD_PARTY_NOTICES.md`                  |
 
 ### Building
 

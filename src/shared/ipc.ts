@@ -7,6 +7,12 @@ export interface ServerInfo {
   version: string;
 }
 
+/** A RomM server found on the local network. */
+export interface DiscoveredServer {
+  url: string;
+  version: string;
+}
+
 export interface AuthStatus {
   serverUrl: string | null;
   username: string | null;
@@ -328,6 +334,8 @@ export interface DownloadJob {
 
 export interface IpcContract {
   'server:probe': { request: string; response: ServerInfo };
+  /** Scans the local network for RomM servers on the default port (takes a few seconds). */
+  'server:discover': { request: undefined; response: DiscoveredServer[] };
   'auth:status': { request: undefined; response: AuthStatus };
   'auth:login': { request: LoginRequest; response: AuthStatus };
   'auth:logout': { request: undefined; response: AuthStatus };
@@ -442,7 +450,7 @@ type Subscribe<E extends keyof IpcEvents> = (
 
 /** The API the preload script exposes as `window.romm`. */
 export interface LauncherApi {
-  server: { probe: Call<'server:probe'> };
+  server: { probe: Call<'server:probe'>; discover: Call<'server:discover'> };
   auth: {
     status: Call<'auth:status'>;
     login: Call<'auth:login'>;

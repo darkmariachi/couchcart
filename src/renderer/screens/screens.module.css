@@ -158,7 +158,7 @@
 }
 
 .favoriteOn {
-  color: var(--romm-primary-light);
+  color: var(--brand-light);
 }
 
 .description {
@@ -249,7 +249,7 @@
 }
 
 .stepDone {
-  background: var(--romm-primary);
+  background: var(--brand);
 }
 
 .field {

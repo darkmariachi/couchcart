@@ -25,7 +25,7 @@ function subscribe<E extends keyof IpcEvents>(channel: E) {
 
 // Named methods only: the renderer cannot reach ipcRenderer or pick arbitrary channels.
 const api: LauncherApi = {
-  server: { probe: call('server:probe') },
+  server: { probe: call('server:probe'), discover: call('server:discover') },
   auth: {
     status: call('auth:status'),
     login: call('auth:login'),

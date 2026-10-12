@@ -19,7 +19,7 @@ let download: RomDownload;
 const sleep = vi.fn(async () => {});
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'romm-launcher-dl-'));
+  dir = mkdtempSync(join(tmpdir(), 'couchcart-dl-'));
   download = {
     urlPath: '/api/roms/21/content/Game%20(U)%20%5B!%5D.z64',
     sizeBytes: CONTENT.length,

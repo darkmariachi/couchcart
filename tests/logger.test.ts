@@ -9,7 +9,7 @@ let dir: string;
 const file = () => join(dir, 'logs', 'launcher.log');
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'romm-launcher-log-'));
+  dir = mkdtempSync(join(tmpdir(), 'couchcart-log-'));
   vi.spyOn(console, 'info').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   enableFileLogging(file());

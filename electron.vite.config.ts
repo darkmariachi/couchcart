@@ -28,7 +28,7 @@ function contentSecurityPolicy(): Plugin {
   ];
   let isDev = false;
   return {
-    name: 'romm-launcher:csp',
+    name: 'couchcart:csp',
     configResolved(config) {
       isDev = config.command === 'serve';
     },
