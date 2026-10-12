@@ -8,3 +8,5 @@ coverage/
 !.env.example
 # Real API responses may contain account or library details; never commit them.
 tests/fixtures/recorded/
+# RomM's OpenAPI spec belongs to RomM; fetch it with `npm run api:fetch` when needed.
+docs/romm-openapi.json

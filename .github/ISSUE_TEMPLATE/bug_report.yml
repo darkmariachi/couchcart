@@ -1,0 +1,57 @@
+name: Bug report
+description: Something does not work as it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Couchcart version
+      description: Shown as Launcher version on the Account screen, and in the installer's file name.
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - Linux
+        - Steam Deck
+    validations:
+      required: true
+  - type: dropdown
+    id: retroarch
+    attributes:
+      label: RetroArch
+      options:
+        - Set up by Couchcart
+        - Standalone
+        - Steam
+        - Flatpak or distribution package
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: romm
+    attributes:
+      label: RomM version
+      description: Shown as RomM version on the Account screen.
+      placeholder: 5.4.0
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: >
+        Settings → This device → Copy recent log, then paste here. It never contains your password
+        or session token, but it does contain your server address and game names: remove anything
+        you would rather not share.
+      render: text

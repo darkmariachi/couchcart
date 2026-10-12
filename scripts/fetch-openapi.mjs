@@ -1,4 +1,5 @@
-// Downloads the OpenAPI spec from a RomM instance into docs/romm-openapi.json.
+// Downloads the OpenAPI spec from a RomM instance into docs/romm-openapi.json. The spec is
+// part of RomM, so the file is ignored by git rather than kept in this repository.
 // Usage: npm run api:fetch -- https://romm.example.lan   (or set ROMM_URL)
 import { writeFile } from 'node:fs/promises';
 

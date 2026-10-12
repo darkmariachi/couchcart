@@ -61,6 +61,9 @@ to.
   </tr>
 </table>
 
+<sub>The games and artwork in these screenshots are invented. Covers in the app come from your own
+RomM server.</sub>
+
 ## Contents
 
 - [Requirements](#requirements) · [Install](#install) · [First run](#first-run) ·
@@ -359,7 +362,9 @@ password or session token.
 Couchcart is an independent project. It is not affiliated with, or endorsed by, RomM, RetroArch
 or libretro, or any console maker. It contains none of their code, artwork or logos: it talks to
 a RomM server you run through RomM's public API, and starts a RetroArch you installed yourself.
-It includes no games, BIOS files or emulator cores. When you ask it to set up RetroArch or a
+It includes no games, BIOS files or emulator cores. The type declarations in
+`src/main/romm/schema.d.ts` are generated from the API description a RomM server publishes, and
+describe that API's requests and responses. When you ask it to set up RetroArch or a
 core, those are downloaded from libretro's own server (`buildbot.libretro.com`) to your PC, under
 their own licences; Couchcart does not redistribute them.
 
@@ -385,7 +390,7 @@ npm run dev
 | `npm run format:check`               | Check formatting (`npm run format` fixes it)         |
 | `npm run dist`                       | Build the Windows installer and portable executable  |
 | `npm run dist:linux`                 | Build the Linux AppImage and tar.gz                  |
-| `npm run api:fetch -- <url>`         | Download the OpenAPI spec from a RomM instance       |
+| `npm run api:fetch -- <url>`         | Download RomM's OpenAPI spec (not kept in the repo)  |
 | `npm run api:types`                  | Regenerate `src/main/romm/schema.d.ts` from the spec |
 | `npm run icon`                       | Regenerate `build/icon.png`                          |
 | `npm run steam-art`                  | Regenerate the Steam artwork in `assets/steam`       |

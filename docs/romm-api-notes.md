@@ -1,7 +1,10 @@
 # RomM API notes
 
-Taken from the OpenAPI spec of a RomM **5.4.0** instance (`docs/romm-openapi.json`).
-Refresh with `npm run api:fetch -- <server url>` then `npm run api:types`.
+Notes on the API of a RomM **5.4.0** instance, as described by its OpenAPI spec.
+
+The spec itself is part of RomM and is not kept in this repository. `npm run api:fetch -- <server
+url>` downloads it from a RomM server into `docs/romm-openapi.json` (ignored by git), and `npm run
+api:types` regenerates `src/main/romm/schema.d.ts`, the type declarations for the API, from it.
 
 The spec is served at `/openapi.json` (not `/api/openapi.json`); Swagger UI is at `/api/docs`.
 
