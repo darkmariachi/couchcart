@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { mdiEye, mdiEyeOff } from '@mdi/js';
 import { captureTextKeys } from '../input/controls';
 import { Dialog } from './Dialog';
 import { Focusable } from './Focusable';
+import { Icon } from './Icon';
 import styles from './ui.module.css';
 
 const LETTERS = ['1234567890', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
@@ -36,6 +38,7 @@ export function OnScreenKeyboard({
   const [value, setValue] = useState(initialValue);
   const [shift, setShift] = useState(false);
   const [symbols, setSymbols] = useState(false);
+  const [revealed, setRevealed] = useState(false);
 
   const type = (character: string) => setValue((current) => current + character);
   const erase = () => setValue((current) => current.slice(0, -1));
@@ -89,9 +92,20 @@ export function OnScreenKeyboard({
       }}
     >
       <div className={styles.keyboardValue}>
-        {secret ? '•'.repeat(value.length) : value}
+        {secret && !revealed ? '•'.repeat(value.length) : value}
         <span className={styles.caret} />
       </div>
+
+      {secret && (
+        <div className={styles.keyRow}>
+          <Focusable className={styles.suggestion} onPress={() => setRevealed(!revealed)}>
+            <span className={styles.row}>
+              <Icon path={revealed ? mdiEyeOff : mdiEye} />
+              {revealed ? 'Hide password' : 'Show password'}
+            </span>
+          </Focusable>
+        </div>
+      )}
 
       {suggest && (
         // Always takes up its space, so the keys do not jump when suggestions appear.

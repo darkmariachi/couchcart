@@ -63,8 +63,9 @@ The setup wizard asks for:
 
 Text is entered with an on-screen keyboard; a physical keyboard types straight into it.
 
-The bar at the top switches between Home, Platforms, Collections, Downloads, Settings and
-Search: press up from the top row of any screen to reach it.
+The bar at the top switches between Home, Platforms, Collections, Search, Downloads and
+Settings. LB and RB step along it from anywhere; pressing up from the top row of a screen
+also reaches it.
 
 The window has no title bar. Drag it by the top bar when windowed; close it with Start →
 Exit launcher.

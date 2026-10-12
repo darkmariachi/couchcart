@@ -5,8 +5,7 @@ import { Ambient } from './components/Ambient';
 import { MenuDialog, type MenuItem } from './components/Dialog';
 import { Footer } from './components/Footer';
 import { LaunchOverlay } from './components/LaunchOverlay';
-import { OnScreenKeyboard } from './components/OnScreenKeyboard';
-import { TopBar } from './components/TopBar';
+import { SECTIONS, TopBar } from './components/TopBar';
 import ui from './components/ui.module.css';
 import {
   useAuthStatus,
@@ -24,12 +23,9 @@ import { GameScreen } from './screens/GameScreen';
 import { GridScreen } from './screens/GridScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { SearchScreen } from './screens/SearchScreen';
 import { SetupWizard } from './screens/SetupWizard';
-import { suggestGlobally } from './librarySearch';
 import { useCurrentEntry, useSection, useUi } from './store/ui';
-
-/** The top bar's sections, in the order LB/RB step through them. */
-const SECTIONS = ['home', 'platforms', 'collections', 'downloads', 'settings'] as const;
 
 export function App() {
   return (
@@ -49,14 +45,13 @@ function Shell() {
 
   const { push, reset } = useUi();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [searching, setSearching] = useState(false);
   const section = useSection();
   const goTo = useUi((state) => state.goTo);
   const stepSection = (step: number) => {
-    const index = SECTIONS.indexOf(section as (typeof SECTIONS)[number]);
+    const order = SECTIONS.map((entry) => entry.route);
+    const index = order.findIndex((route) => route === section);
     // From a screen outside the bar (the debug tools), either button returns to Home.
-    const target =
-      index === -1 ? 'home' : SECTIONS[(index + step + SECTIONS.length) % SECTIONS.length];
+    const target = index === -1 ? 'home' : order[(index + step + order.length) % order.length];
     if (target) goTo({ name: target });
   };
   const libraryReady = Boolean(setup.data?.complete && auth.data?.loggedIn);
@@ -89,7 +84,7 @@ function Shell() {
   const menu: MenuItem[] = [
     ...(inLibrary
       ? [
-          { label: 'Search', run: () => setSearching(true) },
+          { label: 'Search', run: () => goTo({ name: 'search', openKeyboard: true }) },
           { label: 'Debug tools', run: () => push({ name: 'debug' }) },
         ]
       : []),
@@ -101,11 +96,7 @@ function Shell() {
   return (
     <div className={ui.shell}>
       <Ambient />
-      <TopBar
-        username={auth.data.username}
-        showNavigation={inLibrary}
-        onSearch={() => setSearching(true)}
-      />
+      <TopBar username={auth.data.username} showNavigation={inLibrary} />
       <div className={ui.shellBody}>
         {inLibrary ? (
           <CurrentScreen />
@@ -116,19 +107,6 @@ function Shell() {
       <Footer />
 
       {menuOpen && <MenuDialog title="Menu" items={menu} onClose={() => setMenuOpen(false)} />}
-      {searching && (
-        <OnScreenKeyboard
-          title="Search your library"
-          initialValue=""
-          suggest={suggestGlobally}
-          onCancel={() => setSearching(false)}
-          onSubmit={(value) => {
-            setSearching(false);
-            const term = value.trim();
-            if (term) push({ name: 'grid', title: `“${term}”`, source: { type: 'search', term } });
-          }}
-        />
-      )}
       <LaunchOverlay state={launch} />
     </div>
   );
@@ -143,6 +121,8 @@ function CurrentScreen() {
       return <PlatformsScreen />;
     case 'collections':
       return <CollectionsScreen />;
+    case 'search':
+      return <SearchScreen openKeyboard={route.openKeyboard ?? false} />;
     case 'grid':
       // Keyed so switching platform with LB/RB, or searching again, starts a clean grid.
       return (

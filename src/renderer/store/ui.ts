@@ -6,6 +6,8 @@ export type Route =
   | { name: 'home' }
   | { name: 'platforms' }
   | { name: 'collections' }
+  /** `openKeyboard` starts typing straight away (when Search was chosen deliberately). */
+  | { name: 'search'; openKeyboard?: boolean }
   /** A grid of games: one platform, one collection, or search results. */
   | { name: 'grid'; source: GridSource; title: string }
   | { name: 'game'; romId: number }

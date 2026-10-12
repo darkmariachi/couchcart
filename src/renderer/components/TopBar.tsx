@@ -20,23 +20,24 @@ interface Section {
   icon: string;
 }
 
-const SECTIONS: Section[] = [
+/** The top-level sections, in the order they are shown and LB/RB step through them. */
+export const SECTIONS = [
   { route: 'home', label: 'Home', icon: mdiHome },
   { route: 'platforms', label: 'Platforms', icon: mdiController },
   { route: 'collections', label: 'Collections', icon: mdiBookmark },
+  { route: 'search', label: 'Search', icon: mdiMagnify },
   { route: 'downloads', label: 'Downloads', icon: mdiDownload },
   { route: 'settings', label: 'Settings', icon: mdiCog },
-];
+] as const satisfies readonly Section[];
 
 interface TopBarProps {
   username: string | null;
   /** Hidden during setup, when there is nowhere to navigate to yet. */
   showNavigation: boolean;
-  onSearch: () => void;
 }
 
 /** RomM-style header: logo, pill navigation, and who is signed in. */
-export function TopBar({ username, showNavigation, onSearch }: TopBarProps) {
+export function TopBar({ username, showNavigation }: TopBarProps) {
   const goTo = useUi((state) => state.goTo);
   const section = useSection();
   const [logoFailed, setLogoFailed] = useState(false);
@@ -64,16 +65,19 @@ export function TopBar({ username, showNavigation, onSearch }: TopBarProps) {
               key={entry.route}
               className={`${styles.navItem} ${section === entry.route ? styles.navActive : ''}`}
               focusKey={`nav-${entry.route}`}
-              onPress={() => goTo({ name: entry.route } as Route)}
+              // Choosing Search on purpose goes straight to the keyboard.
+              onPress={() =>
+                goTo(
+                  entry.route === 'search'
+                    ? { name: 'search', openKeyboard: true }
+                    : { name: entry.route },
+                )
+              }
             >
               <Icon path={entry.icon} />
               {entry.label}
             </Focusable>
           ))}
-          <Focusable className={styles.navItem} focusKey="nav-search" onPress={onSearch}>
-            <Icon path={mdiMagnify} />
-            Search
-          </Focusable>
         </nav>
       ) : (
         <span />
