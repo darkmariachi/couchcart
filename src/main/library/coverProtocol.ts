@@ -11,7 +11,8 @@ export interface CoverSource {
 }
 
 /**
- * Serves cover art to the renderer as `romm-cover://cover/<encoded server path>`.
+ * Serves images from the RomM server (covers, screenshots, platform icons) to the renderer
+ * as `romm-cover://cover/<encoded server path>`.
  *
  * The renderer has no network access, so images come through here. Each image is stored on
  * disk the first time it is requested and served from there afterwards, which also makes
@@ -28,16 +29,17 @@ export function createCoverHandler(cacheDir: string, getSource: () => CoverSourc
     }
 
     const cacheFile = join(cacheDir, createHash('sha1').update(assetPath).digest('hex'));
+    const type = contentTypeFor(assetPath);
     try {
-      return imageResponse(await readFile(cacheFile));
+      return imageResponse(await readFile(cacheFile), type);
     } catch {
       // Not cached yet.
     }
 
     try {
       const response = await getSource().fetchAsset(assetPath);
-      const type = response.headers.get('content-type') ?? '';
-      if (!response.ok || !type.startsWith('image/')) return new Response(null, { status: 404 });
+      const served = response.headers.get('content-type') ?? '';
+      if (!response.ok || !served.startsWith('image/')) return new Response(null, { status: 404 });
 
       const image = Buffer.from(await response.arrayBuffer());
       await mkdir(cacheDir, { recursive: true });
@@ -45,7 +47,7 @@ export function createCoverHandler(cacheDir: string, getSource: () => CoverSourc
       const temp = `${cacheFile}.${process.pid}.${Date.now()}.tmp`;
       await writeFile(temp, image);
       await rename(temp, cacheFile);
-      return imageResponse(image);
+      return imageResponse(image, type);
     } catch (error) {
       log.warn('Could not load cover', error);
       return new Response(null, { status: 502 });
@@ -53,11 +55,22 @@ export function createCoverHandler(cacheDir: string, getSource: () => CoverSourc
   };
 }
 
-function imageResponse(image: Buffer): Response {
+/**
+ * Bitmap formats are recognised by their content, but SVG and ICO are not, so those get
+ * their type from the file extension.
+ */
+function contentTypeFor(assetPath: string): string {
+  const path = assetPath.split('?')[0]?.toLowerCase() ?? '';
+  if (path.endsWith('.svg')) return 'image/svg+xml';
+  if (path.endsWith('.ico')) return 'image/x-icon';
+  return 'image/*';
+}
+
+function imageResponse(image: Buffer, type: string): Response {
   return new Response(new Uint8Array(image), {
     headers: {
-      // Chromium sniffs the actual image type; the entry never changes once written.
-      'content-type': 'image/*',
+      // An entry never changes once written (RomM versions its image URLs).
+      'content-type': type,
       'cache-control': 'max-age=31536000, immutable',
     },
   });

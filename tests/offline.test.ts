@@ -121,3 +121,76 @@ describe('local facts on listed games', () => {
     expect(game).toMatchObject({ downloaded: false, syncStatus: null });
   });
 });
+
+describe('collections', () => {
+  const collection = (overrides: object) => ({
+    id: 1,
+    name: 'RPGs',
+    description: '',
+    rom_ids: [1, 2],
+    rom_count: 2,
+    path_cover_small: null,
+    path_covers_small: ['/assets/a.png', '/assets/b.png'],
+    is_favorite: false,
+    ...overrides,
+  });
+
+  function serveCollections(regular: object[], smart: object[] = []): void {
+    fake.server.use(
+      http.get(`${BASE_URL}/api/collections`, () => HttpResponse.json(regular)),
+      http.get(`${BASE_URL}/api/collections/smart`, () => HttpResponse.json(smart)),
+      http.get(`${BASE_URL}/api/collections/virtual`, () => HttpResponse.json([])),
+    );
+  }
+
+  it('lists favourites first, then by name, and hides empty collections', async () => {
+    serveCollections(
+      [
+        collection({ id: 1, name: 'RPGs' }),
+        collection({ id: 2, name: 'Empty', rom_count: 0, rom_ids: [] }),
+        collection({ id: 3, name: 'Favourites', is_favorite: true }),
+      ],
+      [collection({ id: 9, name: 'Action' })],
+    );
+
+    const collections = await app.listCollections();
+
+    expect(collections.map((entry) => `${entry.kind}:${entry.name}`)).toEqual([
+      'regular:Favourites',
+      'smart:Action',
+      'regular:RPGs',
+    ]);
+    expect(collections[0]).toMatchObject({ isFavorites: true, romCount: 2 });
+    expect(collections[1]?.coverPaths).toEqual(['/assets/a.png', '/assets/b.png']);
+  });
+
+  it('shows no collections, rather than an error, for a session without access to them', async () => {
+    fake.server.use(
+      http.get(`${BASE_URL}/api/collections`, () =>
+        HttpResponse.json({ detail: 'Forbidden' }, { status: 403 }),
+      ),
+    );
+
+    expect(await app.listCollections()).toEqual([]);
+    await expect(app.setFavorite(1, true)).rejects.toThrow(/sign in again/i);
+  });
+
+  it('adds a game to the favourites collection, creating it on first use', async () => {
+    const calls: string[] = [];
+    serveCollections([]);
+    fake.server.use(
+      http.post(`${BASE_URL}/api/collections`, ({ request }) => {
+        calls.push(`create ${new URL(request.url).searchParams.get('is_favorite')}`);
+        return HttpResponse.json(collection({ id: 7, name: 'Favourites', is_favorite: true }));
+      }),
+      http.post(`${BASE_URL}/api/collections/7/roms`, async ({ request }) => {
+        calls.push(`add ${JSON.stringify(await request.json())}`);
+        return HttpResponse.json({});
+      }),
+    );
+
+    await app.setFavorite(21, true);
+
+    expect(calls).toEqual(['create true', 'add {"rom_ids":[21]}']);
+  });
+});

@@ -35,7 +35,9 @@ const api: LauncherApi = {
     platforms: call('library:platforms'),
     roms: call('library:roms'),
     romAssets: call('library:romAssets'),
-    platformRoms: call('library:platformRoms'),
+    gridRoms: call('library:gridRoms'),
+    recentlyAdded: call('library:recentlyAdded'),
+    collections: call('library:collections'),
     recentlyPlayed: call('library:recentlyPlayed'),
     romDetail: call('library:romDetail'),
     coreCoverage: call('library:coreCoverage'),
@@ -47,6 +49,7 @@ const api: LauncherApi = {
     download: call('game:download'),
     deleteLocal: call('game:deleteLocal'),
     setCore: call('game:setCore'),
+    setFavorite: call('game:setFavorite'),
     onStateChanged: subscribe('game:stateChanged'),
   },
   downloads: {

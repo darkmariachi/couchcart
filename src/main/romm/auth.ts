@@ -23,7 +23,8 @@ export interface TokenStore {
 }
 
 // Only what the launcher needs: browse the library, read/write saves and states,
-// register this PC as a device, read firmware (BIOS) and update play status.
+// register this PC as a device, read firmware (BIOS), update play status, and read
+// collections and manage favourites.
 export const REQUESTED_SCOPES = [
   'me.read',
   'roms.read',
@@ -35,6 +36,8 @@ export const REQUESTED_SCOPES = [
   'firmware.read',
   'roms.user.read',
   'roms.user.write',
+  'collections.read',
+  'collections.write',
 ] as const;
 
 /** Refresh slightly early so a request never leaves with a token about to expire. */

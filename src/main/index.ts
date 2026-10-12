@@ -62,7 +62,9 @@ function createWindow(fullscreen: boolean): BrowserWindow {
     width: 1280,
     height: 720,
     fullscreen,
-    backgroundColor: '#150f26',
+    // No title bar: the app draws its own header, which doubles as the drag handle.
+    frame: false,
+    backgroundColor: '#07070f',
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

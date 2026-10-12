@@ -3,6 +3,8 @@ import { readdir, stat, statfs } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type {
   AuthStatus,
+  CollectionSummary,
+  GridSource,
   ConflictResolution,
   ControllerInfo,
   DownloadJob,
@@ -53,7 +55,8 @@ import {
   type SimpleRom,
 } from './romm/client';
 import { CredentialStore, type Encryptor } from './romm/credentials';
-import { NetworkError, NotAuthenticatedError } from './romm/errors';
+import { LauncherError } from './errors';
+import { NetworkError, NotAuthenticatedError, RommApiError } from './romm/errors';
 import { runApiProbe } from './romm/probe';
 import { SaveBackups } from './saves/backups';
 import {
@@ -254,15 +257,98 @@ export class LauncherApp {
   }
 
   /** Every game of a platform. The grid sorts, filters and searches this list locally. */
-  async listPlatformRoms(platformId: number): Promise<RomSummary[]> {
-    const roms = await this.cached(`platformRoms:${platformId}`, async () => {
+  listPlatformRoms(platformId: number): Promise<RomSummary[]> {
+    return this.listGridRoms({ type: 'platform', platformId });
+  }
+
+  /** Every game of a platform, a collection or a search. */
+  async listGridRoms(source: GridSource): Promise<RomSummary[]> {
+    const fetchAll = async () => {
       const listed: ListedRom[] = [];
-      for await (const rom of this.requireConnection().client.iterateRoms({ platformId })) {
+      for await (const rom of this.requireConnection().client.iterateRoms(toRomQuery(source))) {
         listed.push(toListedRom(rom));
       }
       return listed;
+    };
+    // Search results are not worth remembering; everything else is, for offline browsing.
+    const roms =
+      source.type === 'search'
+        ? await fetchAll()
+        : await this.cached(gridCacheKey(source), fetchAll);
+    return this.withLocalFacts(roms);
+  }
+
+  async listRecentlyAdded(): Promise<RomSummary[]> {
+    const roms = await this.cached('recentlyAdded', async () => {
+      const page = await this.requireConnection().client.listRoms({
+        orderBy: 'id',
+        orderDir: 'desc',
+        limit: 20,
+      });
+      return page.items.map(toListedRom);
     });
     return this.withLocalFacts(roms);
+  }
+
+  /** The user's collections: their own, smart ones, and those RomM derives from metadata. */
+  async listCollections(): Promise<CollectionSummary[]> {
+    const collections = await this.cached('collections', async () => {
+      // A session from before the launcher asked for collection access gets a 403.
+      // The library still works without collections, so that is not an error here.
+      if (!(await this.canReadCollections())) return [];
+      const { client } = this.requireConnection();
+      const [regular, smart, virtual] = await Promise.all([
+        client.listCollections(),
+        client.listSmartCollections().catch(() => []),
+        client.listVirtualCollections('collection').catch(() => []),
+      ]);
+      return [
+        ...regular.map((collection) => toCollectionSummary('regular', collection)),
+        ...smart.map((collection) => toCollectionSummary('smart', collection)),
+        ...virtual.map((collection) => toCollectionSummary('virtual', collection)),
+      ];
+    });
+    return collections
+      .filter((collection) => collection.romCount > 0 || collection.isFavorites)
+      .sort(
+        (a, b) => Number(b.isFavorites) - Number(a.isFavorites) || a.name.localeCompare(b.name),
+      );
+  }
+
+  private async canReadCollections(): Promise<boolean> {
+    try {
+      await this.requireConnection().client.listCollections();
+      return true;
+    } catch (error) {
+      if (error instanceof RommApiError && error.status === 403) return false;
+      throw error;
+    }
+  }
+
+  /** Adds a game to, or removes it from, the user's favourites collection in RomM. */
+  async setFavorite(romId: number, favorite: boolean): Promise<undefined> {
+    const { client } = this.requireConnection();
+    if (!(await this.canReadCollections())) {
+      throw new LauncherError(
+        'api',
+        'Sign out and sign in again to use favourites and collections. This session was created before the launcher asked RomM for access to them.',
+      );
+    }
+    const existing = (await client.listCollections()).find((collection) => collection.is_favorite);
+    if (!existing && !favorite) return;
+    const favorites = existing ?? (await client.createFavoritesCollection());
+    if (favorite) await client.addToCollection(favorites.id, [romId]);
+    else await client.removeFromCollection(favorites.id, [romId]);
+    // The remembered collection list now has stale membership; refresh it.
+    await this.listCollections().catch(() => undefined);
+  }
+
+  private async isFavorite(romId: number): Promise<boolean> {
+    const regular = await this.cached('favoriteRomIds', async () => {
+      const collections = await this.requireConnection().client.listCollections();
+      return collections.find((collection) => collection.is_favorite)?.rom_ids ?? [];
+    }).catch(() => [] as number[]);
+    return regular.includes(romId);
   }
 
   async listRecentlyPlayed(): Promise<RomSummary[]> {
@@ -299,6 +385,13 @@ export class LauncherApp {
       core: resolution.found ? resolution.core : null,
       coreOverride: coreOverrides.games[String(romId)] ?? null,
       coreOptions: coreOptionsFor(rom.platform_slug, rom.platform_fs_slug, installed),
+      favorite: await this.isFavorite(romId),
+      screenshots: rom.merged_screenshots ?? [],
+      regions: rom.regions ?? [],
+      languages: rom.languages ?? [],
+      companies: rom.metadatum.companies ?? [],
+      rating: rom.metadatum.average_rating ?? null,
+      playerCount: rom.metadatum.player_count || null,
     };
   }
 
@@ -826,6 +919,52 @@ async function freeBytesAt(path: string): Promise<number | null> {
       if (dirname(dir) === dir) return null;
     }
   }
+}
+
+function toRomQuery(source: GridSource) {
+  switch (source.type) {
+    case 'platform':
+      return { platformId: source.platformId };
+    case 'search':
+      return { search: source.term, orderBy: '' };
+    case 'collection':
+      if (source.kind === 'virtual') return { virtualCollectionId: source.id };
+      return source.kind === 'smart'
+        ? { smartCollectionId: Number(source.id) }
+        : { collectionId: Number(source.id) };
+  }
+}
+
+function gridCacheKey(source: Exclude<GridSource, { type: 'search' }>): string {
+  return source.type === 'platform'
+    ? `platformRoms:${source.platformId}`
+    : `collectionRoms:${source.kind}:${source.id}`;
+}
+
+function toCollectionSummary(
+  kind: CollectionSummary['kind'],
+  collection: {
+    id: number | string;
+    name: string;
+    description?: string;
+    rom_count: number;
+    path_covers_small: string[];
+    path_cover_small: string | null;
+    is_favorite?: boolean;
+  },
+): CollectionSummary {
+  const covers = collection.path_cover_small
+    ? [collection.path_cover_small]
+    : collection.path_covers_small.slice(0, 4);
+  return {
+    kind,
+    id: String(collection.id),
+    name: collection.name,
+    description: collection.description ?? '',
+    romCount: collection.rom_count,
+    coverPaths: covers,
+    isFavorites: collection.is_favorite ?? false,
+  };
 }
 
 function toPlatformSummary(platform: Platform): PlatformSummary {

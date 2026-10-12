@@ -10,6 +10,9 @@ export type DetailedRom = Schemas['DetailedRomSchema'];
 export type Save = Schemas['SaveSchema'];
 export type State = Schemas['StateSchema'];
 export type User = Schemas['UserSchema'];
+export type Collection = Schemas['CollectionSchema'];
+export type SmartCollection = Schemas['SmartCollectionSchema'];
+export type VirtualCollection = Schemas['VirtualCollectionSchema'];
 
 export interface RomListQuery {
   platformId?: number;
@@ -18,6 +21,9 @@ export interface RomListQuery {
   orderDir?: 'asc' | 'desc';
   /** Only games the current user has played. */
   playedOnly?: boolean;
+  collectionId?: number;
+  smartCollectionId?: number;
+  virtualCollectionId?: string;
   offset?: number;
   limit?: number;
 }
@@ -108,6 +114,9 @@ export class RommClient {
             platform_ids: query.platformId === undefined ? undefined : [query.platformId],
             search_term: query.search || undefined,
             last_played: query.playedOnly ? true : undefined,
+            collection_id: query.collectionId,
+            smart_collection_id: query.smartCollectionId,
+            virtual_collection_id: query.virtualCollectionId,
             order_by: query.orderBy ?? 'name',
             order_dir: query.orderDir ?? 'asc',
             offset: query.offset ?? 0,
@@ -138,6 +147,56 @@ export class RommClient {
 
   async listStates(romId?: number): Promise<State[]> {
     return unwrap(await this.api.GET('/api/states', { params: { query: { rom_id: romId } } }));
+  }
+
+  async listCollections(): Promise<Collection[]> {
+    return unwrap(await this.api.GET('/api/collections'));
+  }
+
+  async listSmartCollections(): Promise<SmartCollection[]> {
+    return unwrap(await this.api.GET('/api/collections/smart'));
+  }
+
+  /** Collections RomM derives from metadata; `type` is e.g. "collection" or "franchise". */
+  async listVirtualCollections(type: string): Promise<VirtualCollection[]> {
+    return unwrap(await this.api.GET('/api/collections/virtual', { params: { query: { type } } }));
+  }
+
+  async addToCollection(collectionId: number, romIds: number[]): Promise<void> {
+    unwrap(
+      await this.api.POST('/api/collections/{id}/roms', {
+        params: { path: { id: collectionId } },
+        body: { rom_ids: romIds },
+      }),
+    );
+  }
+
+  async removeFromCollection(collectionId: number, romIds: number[]): Promise<void> {
+    unwrap(
+      await this.api.DELETE('/api/collections/{id}/roms', {
+        params: { path: { id: collectionId } },
+        body: { rom_ids: romIds },
+      }),
+    );
+  }
+
+  /** Creates the user's favourites collection, the way RomM's own UI does on first use. */
+  async createFavoritesCollection(): Promise<Collection> {
+    const form = new FormData();
+    form.append('name', 'Favourites');
+    form.append('description', '');
+    const response = await this.fetchRaw('/api/collections?is_favorite=true&is_public=false', {
+      method: 'POST',
+      body: form,
+    });
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new RommApiError(
+        response.status,
+        describeErrorBody(body, `RomM returned HTTP ${response.status}.`),
+      );
+    }
+    return body as Collection;
   }
 
   async listDevices(): Promise<{ id: string; name: string | null }[]> {

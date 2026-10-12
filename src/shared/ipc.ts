@@ -66,7 +66,35 @@ export interface RomDetail extends RomSummary {
   coreOverride: string | null;
   /** Installed cores that can run this platform. */
   coreOptions: string[];
+  favorite: boolean;
+  screenshots: string[];
+  regions: string[];
+  languages: string[];
+  companies: string[];
+  /** Average critic/user rating out of 100, when a metadata source provides one. */
+  rating: number | null;
+  playerCount: string | null;
 }
+
+export type CollectionKind = 'regular' | 'smart' | 'virtual';
+
+export interface CollectionSummary {
+  kind: CollectionKind;
+  /** Unique together with `kind`. */
+  id: string;
+  name: string;
+  description: string;
+  romCount: number;
+  /** A few game covers to show as the collection's artwork. */
+  coverPaths: string[];
+  isFavorites: boolean;
+}
+
+/** What a grid of games is showing. */
+export type GridSource =
+  | { type: 'platform'; platformId: number }
+  | { type: 'collection'; kind: CollectionKind; id: string }
+  | { type: 'search'; term: string };
 
 export interface RomQuery {
   platformId: number;
@@ -305,7 +333,10 @@ export interface IpcContract {
   'library:platforms': { request: undefined; response: PlatformSummary[] };
   'library:roms': { request: RomQuery; response: RomPage };
   'library:romAssets': { request: number; response: RomAssets };
-  'library:platformRoms': { request: number; response: RomSummary[] };
+  /** Every game of a platform, a collection or a search. */
+  'library:gridRoms': { request: GridSource; response: RomSummary[] };
+  'library:recentlyAdded': { request: undefined; response: RomSummary[] };
+  'library:collections': { request: undefined; response: CollectionSummary[] };
   'library:recentlyPlayed': { request: undefined; response: RomSummary[] };
   'library:romDetail': { request: number; response: RomDetail };
   'library:coreCoverage': { request: undefined; response: PlatformCoverage[] };
@@ -322,6 +353,7 @@ export interface IpcContract {
   'game:deleteLocal': { request: number; response: undefined };
   /** `core: null` returns the game to its platform's core. */
   'game:setCore': { request: { romId: number; core: string | null }; response: undefined };
+  'game:setFavorite': { request: { romId: number; favorite: boolean }; response: undefined };
 
   'downloads:list': { request: undefined; response: DownloadJob[] };
   'downloads:cancel': { request: number; response: undefined };
@@ -417,7 +449,9 @@ export interface LauncherApi {
     platforms: Call<'library:platforms'>;
     roms: Call<'library:roms'>;
     romAssets: Call<'library:romAssets'>;
-    platformRoms: Call<'library:platformRoms'>;
+    gridRoms: Call<'library:gridRoms'>;
+    recentlyAdded: Call<'library:recentlyAdded'>;
+    collections: Call<'library:collections'>;
     recentlyPlayed: Call<'library:recentlyPlayed'>;
     romDetail: Call<'library:romDetail'>;
     coreCoverage: Call<'library:coreCoverage'>;
@@ -429,6 +463,7 @@ export interface LauncherApi {
     download: Call<'game:download'>;
     deleteLocal: Call<'game:deleteLocal'>;
     setCore: Call<'game:setCore'>;
+    setFavorite: Call<'game:setFavorite'>;
     /** Each `on...` returns a function that removes the listener. */
     onStateChanged: Subscribe<'game:stateChanged'>;
   };
