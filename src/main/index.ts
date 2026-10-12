@@ -1,10 +1,19 @@
 import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { BrowserWindow, app, safeStorage, session, type IpcMainInvokeEvent } from 'electron';
-import type { IpcEvents } from '../shared/ipc';
+import {
+  BrowserWindow,
+  app,
+  dialog,
+  protocol,
+  safeStorage,
+  session,
+  type IpcMainInvokeEvent,
+} from 'electron';
+import type { IpcEvents, LaunchState } from '../shared/ipc';
 import { registerIpcHandlers } from './ipc/handlers';
 import { LauncherApp } from './launcherApp';
+import { COVER_SCHEME, createCoverHandler } from './library/coverProtocol';
 import { log } from './logging/logger';
 import type { Encryptor } from './romm/credentials';
 
@@ -12,6 +21,12 @@ import type { Encryptor } from './romm/credentials';
 const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
 const rendererFile = join(__dirname, '../renderer/index.html');
 const rendererOrigin = devServerUrl ?? pathToFileURL(rendererFile).href;
+
+// Must happen before the app is ready. "standard" gives the scheme normal URL parsing and
+// "secure" lets a page with a strict CSP load images from it.
+protocol.registerSchemesAsPrivileged([
+  { scheme: COVER_SCHEME, privileges: { standard: true, secure: true } },
+]);
 
 const osEncryptor: Encryptor = {
   // On Linux without a keyring, safeStorage silently falls back to a hard-coded key
@@ -27,10 +42,18 @@ function isTrustedSender(event: IpcMainInvokeEvent): boolean {
   return event.senderFrame?.url.startsWith(rendererOrigin) ?? false;
 }
 
-function createWindow(): BrowserWindow {
+/** `--fullscreen` and `--windowed` on the command line win over the saved setting. */
+function shouldStartFullscreen(setting: boolean): boolean {
+  if (process.argv.includes('--windowed')) return false;
+  if (process.argv.includes('--fullscreen')) return true;
+  return setting;
+}
+
+function createWindow(fullscreen: boolean): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
     height: 720,
+    fullscreen,
     backgroundColor: '#150f26',
     autoHideMenuBar: true,
     webPreferences: {
@@ -58,6 +81,20 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   let mainWindow: BrowserWindow | null = null;
 
+  const onLaunchStateChanged = (state: LaunchState) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const event: keyof IpcEvents = 'game:stateChanged';
+    mainWindow.webContents.send(event, state);
+
+    // Get out of the way while the game runs, and take the screen back when it ends.
+    if (state.phase === 'running') mainWindow.hide();
+    const gameEnded = state.phase === 'syncing' && state.stage === 'after-exit';
+    if (gameEnded && !mainWindow.isVisible()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  };
+
   app.on('second-instance', () => {
     if (mainWindow?.isMinimized()) mainWindow.restore();
     mainWindow?.focus();
@@ -75,22 +112,27 @@ if (!app.requestSingleInstanceLock()) {
       hostname: hostname(),
       appVersion: app.getVersion(),
       encryptor: osEncryptor,
-      onLaunchStateChanged: (state) => {
-        if (!mainWindow || mainWindow.isDestroyed()) return;
-        const event: keyof IpcEvents = 'game:stateChanged';
-        mainWindow.webContents.send(event, state);
-
-        // Get out of the way while the game runs, and take the screen back when it ends.
-        if (state.phase === 'running') mainWindow.hide();
-        const gameEnded = state.phase === 'syncing' && state.stage === 'after-exit';
-        if (gameEnded && !mainWindow.isVisible()) {
-          mainWindow.show();
-          mainWindow.focus();
-        }
+      onLaunchStateChanged,
+      shell: {
+        chooseDirectory: async (startIn) => {
+          if (!mainWindow) return null;
+          const result = await dialog.showOpenDialog(mainWindow, {
+            defaultPath: startIn,
+            properties: ['openDirectory', 'createDirectory'],
+          });
+          return result.canceled ? null : (result.filePaths[0] ?? null);
+        },
+        quit: () => app.quit(),
+        toggleFullscreen: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()),
       },
     });
+
+    protocol.handle(
+      COVER_SCHEME,
+      createCoverHandler(join(app.getPath('userData'), 'covers'), () => launcher.coverSource),
+    );
     registerIpcHandlers(launcher, isTrustedSender);
-    mainWindow = createWindow();
+    mainWindow = createWindow(shouldStartFullscreen(launcher.launcherFullscreen));
     log.info(`RomM Launcher ${app.getVersion()} started`);
   });
 }

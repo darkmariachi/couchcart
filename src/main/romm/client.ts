@@ -16,6 +16,8 @@ export interface RomListQuery {
   search?: string;
   orderBy?: string;
   orderDir?: 'asc' | 'desc';
+  /** Only games the current user has played. */
+  playedOnly?: boolean;
   offset?: number;
   limit?: number;
 }
@@ -105,6 +107,7 @@ export class RommClient {
           query: {
             platform_ids: query.platformId === undefined ? undefined : [query.platformId],
             search_term: query.search || undefined,
+            last_played: query.playedOnly ? true : undefined,
             order_by: query.orderBy ?? 'name',
             order_dir: query.orderDir ?? 'asc',
             offset: query.offset ?? 0,
@@ -135,6 +138,21 @@ export class RommClient {
 
   async listStates(romId?: number): Promise<State[]> {
     return unwrap(await this.api.GET('/api/states', { params: { query: { rom_id: romId } } }));
+  }
+
+  /** Records "last played: now" for the current user. */
+  async markPlayed(romId: number): Promise<void> {
+    unwrap(
+      await this.api.PUT('/api/roms/{id}/props', {
+        params: { path: { id: romId }, query: { update_last_played: true } },
+        body: {},
+      }),
+    );
+  }
+
+  /** Fetches a server-relative asset path such as a cover image. */
+  fetchAsset(path: string): Promise<Response> {
+    return this.fetchRaw(path);
   }
 
   /** Registers this PC with RomM (or finds its existing registration) and returns its id. */

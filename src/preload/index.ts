@@ -35,7 +35,19 @@ const api: LauncherApi = {
     platforms: call('library:platforms'),
     roms: call('library:roms'),
     romAssets: call('library:romAssets'),
+    platformRoms: call('library:platformRoms'),
+    recentlyPlayed: call('library:recentlyPlayed'),
+    romDetail: call('library:romDetail'),
+    coreCoverage: call('library:coreCoverage'),
   },
+  setup: {
+    status: call('setup:status'),
+    chooseCacheDir: call('setup:chooseCacheDir'),
+    importPreview: call('setup:importPreview'),
+    importSaves: call('setup:importSaves'),
+    complete: call('setup:complete'),
+  },
+  app: { quit: call('app:quit'), toggleFullscreen: call('app:toggleFullscreen') },
   debug: { apiProbe: call('debug:apiProbe') },
   retroarch: { status: call('retroarch:status') },
   saves: {
@@ -46,6 +58,8 @@ const api: LauncherApi = {
   game: {
     play: call('game:play'),
     state: call('game:state'),
+    download: call('game:download'),
+    deleteLocal: call('game:deleteLocal'),
     onStateChanged: subscribe('game:stateChanged'),
   },
 };

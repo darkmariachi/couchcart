@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const CURRENT_SETTINGS_VERSION = 3;
+export const CURRENT_SETTINGS_VERSION = 4;
 
 const retroarchSchema = z.object({
   /** Null means "auto-detect"; set it to pin a specific install. */
@@ -22,6 +22,10 @@ export const settingsSchema = z.object({
   /** How many backups to keep per game in `save-backups`. */
   saveBackupCount: z.number().int().min(1).max(1000),
   retroarch: retroarchSchema,
+  /** False until the first-run wizard has been finished. */
+  setupComplete: z.boolean(),
+  /** Whether the launcher window itself starts fullscreen. */
+  launcherFullscreen: z.boolean(),
   /** Null means `<app data>/roms`. */
   cacheDir: z.string().nullable(),
   /** Core names without extension, e.g. `mupen64plus_next_libretro`. */
@@ -41,6 +45,11 @@ const V2_ADDITIONS = {
 
 const V3_ADDITIONS = { deviceId: null, saveBackupCount: 10 } satisfies Partial<Settings>;
 
+const V4_ADDITIONS = {
+  setupComplete: false,
+  launcherFullscreen: true,
+} satisfies Partial<Settings>;
+
 export function defaultSettings(deviceName: string): Settings {
   return {
     version: CURRENT_SETTINGS_VERSION,
@@ -49,6 +58,7 @@ export function defaultSettings(deviceName: string): Settings {
     deviceName,
     ...structuredClone(V2_ADDITIONS),
     ...V3_ADDITIONS,
+    ...V4_ADDITIONS,
   };
 }
 
@@ -60,6 +70,9 @@ const MIGRATIONS: Record<number, (old: RawSettings) => RawSettings> = {
   1: (v1) => ({ ...v1, ...structuredClone(V2_ADDITIONS), version: 2 }),
   // v3 added the RomM device id and the save backup count (Milestone 3).
   2: (v2) => ({ ...v2, ...V3_ADDITIONS, version: 3 }),
+  // v4 added the setup wizard flag and launcher fullscreen (Milestone 4). Existing
+  // installs see the wizard once too, because it now offers to import RetroArch saves.
+  3: (v3) => ({ ...v3, ...V4_ADDITIONS, version: 4 }),
 };
 
 /**

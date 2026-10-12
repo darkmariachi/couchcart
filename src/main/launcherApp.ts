@@ -1,7 +1,12 @@
 import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+import { readdir, stat, statfs } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import type {
   AuthStatus,
+  ImportPreview,
+  PlatformCoverage,
+  RomDetail,
+  SetupStatus,
   ConflictResolution,
   SyncReport,
   LaunchState,
@@ -23,7 +28,15 @@ import { SaveBackups } from './saves/backups';
 import { SaveSyncService, type SyncableRom } from './saves/saveSyncService';
 import { SyncStore } from './saves/syncStore';
 import { locateRetroArch } from './launcher/retroarch';
-import { DataPaths } from './paths';
+import type { CoverSource } from './library/coverProtocol';
+import { DataPaths, safeSegment } from './paths';
+import {
+  findImportCandidates,
+  importCandidates,
+  readRetroArchSaveDirs,
+  toPreview,
+  type ImportCandidate,
+} from './saves/saveImport';
 import { AuthSession } from './romm/auth';
 import { createAuthenticatedFetch } from './romm/authenticatedFetch';
 import { RommClient, normalizeServerUrl, probeServer, type SimpleRom } from './romm/client';
@@ -43,7 +56,16 @@ export interface LauncherAppOptions {
   appVersion: string;
   encryptor: Encryptor;
   onLaunchStateChanged: (state: LaunchState) => void;
+  /** Things only the Electron shell can do. */
+  shell: {
+    chooseDirectory: (startIn: string) => Promise<string | null>;
+    quit: () => void;
+    toggleFullscreen: () => void;
+  };
 }
+
+/** File names and sizes present in one platform's cache folder. */
+type CachedFiles = Map<string, number>;
 
 /** Owns the main-process services and implements what the IPC layer exposes. */
 export class LauncherApp {
@@ -52,6 +74,7 @@ export class LauncherApp {
   private readonly launcher: LaunchService;
   private readonly saveSync: SaveSyncService;
   private readonly syncStore: SyncStore;
+  private readonly paths: DataPaths;
   private connection: Connection | null = null;
 
   constructor(private readonly options: LauncherAppOptions) {
@@ -62,6 +85,7 @@ export class LauncherApp {
     );
 
     const paths = new DataPaths(options.dataDir, () => this.settings.get().cacheDir);
+    this.paths = paths;
     this.syncStore = new SyncStore(join(options.dataDir, 'sync.db'));
     this.saveSync = new SaveSyncService({
       getRemote: () => this.requireConnection().client,
@@ -148,11 +172,72 @@ export class LauncherApp {
   async listRoms(query: RomQuery): Promise<RomPage> {
     const page = await this.requireConnection().client.listRoms(query);
     return {
-      items: page.items.map(toRomSummary),
+      items: await this.toSummaries(page.items),
       total: page.total ?? page.items.length,
       offset: query.offset,
       limit: query.limit,
     };
+  }
+
+  /** Every game of a platform. The grid sorts, filters and searches this list locally. */
+  async listPlatformRoms(platformId: number): Promise<RomSummary[]> {
+    const roms: SimpleRom[] = [];
+    for await (const rom of this.requireConnection().client.iterateRoms({ platformId })) {
+      roms.push(rom);
+    }
+    return this.toSummaries(roms);
+  }
+
+  async listRecentlyPlayed(): Promise<RomSummary[]> {
+    const page = await this.requireConnection().client.listRoms({ playedOnly: true, limit: 100 });
+    const summaries = await this.toSummaries(page.items);
+    return summaries
+      .filter((rom) => rom.lastPlayed !== null)
+      .sort((a, b) => Date.parse(b.lastPlayed ?? '') - Date.parse(a.lastPlayed ?? ''))
+      .slice(0, 20);
+  }
+
+  async getRomDetail(romId: number): Promise<RomDetail> {
+    const rom = await this.requireConnection().client.getRom(romId);
+    const [summary] = await this.toSummaries([rom]);
+    if (!summary) throw new Error('ROM summary missing');
+    return {
+      ...summary,
+      platformName: rom.platform_display_name,
+      description: rom.summary,
+      releaseYear: toYear(rom.metadatum.first_release_date),
+      genres: rom.metadatum.genres ?? [],
+      coverLargePath: rom.path_cover_large,
+      lastSync: this.saveSync.getLastReport(romId),
+    };
+  }
+
+  /** Which platforms in the library have an installed core to run them. */
+  async getCoreCoverage(): Promise<PlatformCoverage[]> {
+    const [platforms, retroarch] = await Promise.all([
+      this.requireConnection().client.listPlatforms(),
+      this.launcher.getRetroArchStatus(),
+    ]);
+    const installed = new Set(retroarch.installedCores);
+    return platforms
+      .filter((platform) => platform.rom_count > 0)
+      .map((platform) => {
+        const resolution = resolveCore({
+          romId: 0,
+          platformSlug: platform.slug,
+          platformFsSlug: platform.fs_slug,
+          overrides: { platforms: this.settings.get().coreOverrides.platforms, games: {} },
+          defaults: DEFAULT_CORES,
+          installed,
+        });
+        return {
+          slug: platform.slug,
+          name: platform.display_name,
+          romCount: platform.rom_count,
+          core: resolution.found ? resolution.core : null,
+          candidates: resolution.found ? [] : resolution.candidates,
+        };
+      });
   }
 
   async getRomAssets(romId: number): Promise<RomAssets> {
@@ -172,6 +257,100 @@ export class LauncherApp {
 
   async play(romId: number): Promise<undefined> {
     await this.launcher.play(romId);
+  }
+
+  async downloadRom(romId: number): Promise<undefined> {
+    await this.launcher.download(romId);
+  }
+
+  async deleteLocalRom(romId: number): Promise<undefined> {
+    await this.launcher.deleteLocal(romId);
+  }
+
+  async getSetupStatus(): Promise<SetupStatus> {
+    const settings = this.settings.get();
+    return {
+      complete: settings.setupComplete,
+      deviceName: settings.deviceName,
+      cacheDir: this.paths.romCacheDir,
+      freeBytes: await freeBytesAt(this.paths.romCacheDir),
+      fullscreen: settings.launcherFullscreen,
+    };
+  }
+
+  async chooseCacheDir(): Promise<SetupStatus> {
+    const chosen = await this.options.shell.chooseDirectory(dirname(this.paths.romCacheDir));
+    if (chosen) this.settings.update({ cacheDir: chosen });
+    return this.getSetupStatus();
+  }
+
+  async getImportPreview(): Promise<ImportPreview> {
+    return toPreview(await this.findImportCandidates());
+  }
+
+  /** Copies matching saves from RetroArch's own folders. Returns how many were copied. */
+  async importSaves(): Promise<number> {
+    const imported = await importCandidates(await this.findImportCandidates());
+    log.info(`Imported ${imported} existing RetroArch save file(s)`);
+    return imported;
+  }
+
+  completeSetup(): Promise<SetupStatus> {
+    this.settings.update({ setupComplete: true });
+    return this.getSetupStatus();
+  }
+
+  quit(): undefined {
+    this.options.shell.quit();
+  }
+
+  toggleFullscreen(): undefined {
+    this.options.shell.toggleFullscreen();
+  }
+
+  /** Lets the cover image handler fetch with the current session. */
+  get coverSource(): CoverSource {
+    return this.requireConnection().client;
+  }
+
+  get launcherFullscreen(): boolean {
+    return this.settings.get().launcherFullscreen;
+  }
+
+  private async findImportCandidates(): Promise<ImportCandidate[]> {
+    const install = await this.launcher.locateInstall();
+    if (!install) return [];
+    const roms: SimpleRom[] = [];
+    for await (const rom of this.requireConnection().client.iterateRoms()) roms.push(rom);
+    const sourceDirs = await readRetroArchSaveDirs(install.workingDir);
+    return findImportCandidates(sourceDirs, roms, this.paths);
+  }
+
+  private async toSummaries(roms: SimpleRom[]): Promise<RomSummary[]> {
+    const cacheByPlatform = new Map<string, CachedFiles>();
+    const summaries: RomSummary[] = [];
+    for (const rom of roms) {
+      let cached = cacheByPlatform.get(rom.platform_slug);
+      if (!cached) {
+        cached = await this.listCachedFiles(rom.platform_slug);
+        cacheByPlatform.set(rom.platform_slug, cached);
+      }
+      summaries.push(toRomSummary(rom, cached));
+    }
+    return summaries;
+  }
+
+  private async listCachedFiles(platformSlug: string): Promise<CachedFiles> {
+    const files: CachedFiles = new Map();
+    try {
+      const dir = join(this.paths.romCacheDir, safeSegment(platformSlug));
+      for (const name of await readdir(dir)) {
+        files.set(name, (await stat(join(dir, name))).size);
+      }
+    } catch {
+      // Nothing downloaded for this platform yet.
+    }
+    return files;
   }
 
   getLaunchState(): LaunchState {
@@ -239,7 +418,34 @@ export class LauncherApp {
   }
 }
 
-function toRomSummary(rom: SimpleRom): RomSummary {
+function isCached(rom: SimpleRom, cached: CachedFiles): boolean {
+  try {
+    return cached.get(safeSegment(rom.fs_name)) === rom.fs_size_bytes;
+  } catch {
+    return false;
+  }
+}
+
+/** RomM stores release dates as epoch milliseconds; older data may be in seconds. */
+function toYear(releaseDate: number | null | undefined): number | null {
+  if (!releaseDate) return null;
+  const ms = releaseDate < 100_000_000_000 ? releaseDate * 1000 : releaseDate;
+  return new Date(ms).getUTCFullYear();
+}
+
+/** Free space at a folder that may not exist yet (its nearest existing parent is used). */
+async function freeBytesAt(path: string): Promise<number | null> {
+  for (let dir = path; ; dir = dirname(dir)) {
+    try {
+      const info = await statfs(dir);
+      return info.bavail * info.bsize;
+    } catch {
+      if (dirname(dir) === dir) return null;
+    }
+  }
+}
+
+function toRomSummary(rom: SimpleRom, cached: CachedFiles): RomSummary {
   return {
     id: rom.id,
     name: rom.name ?? rom.fs_name_no_ext,
@@ -250,6 +456,8 @@ function toRomSummary(rom: SimpleRom): RomSummary {
     lastPlayed: rom.rom_user.last_played,
     hasMultipleFiles: rom.has_multiple_files,
     md5: rom.md5_hash,
+    createdAt: rom.created_at,
+    downloaded: isCached(rom, cached),
   };
 }
 

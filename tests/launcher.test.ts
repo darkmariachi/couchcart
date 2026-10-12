@@ -170,6 +170,7 @@ describe('LaunchService', () => {
   let spawn: Mock<(executable: string, args: string[], options: { cwd: string }) => EventEmitter>;
   let fetchRaw: Mock<RomSource['fetchRaw']>;
   let settings: Settings;
+  const markPlayed = vi.fn(async () => {});
   const syncSaves = vi.fn<LaunchServiceDeps['syncSaves']>(async (syncedRom) => ({
     romId: syncedRom.id,
     status: 'synced',
@@ -200,7 +201,7 @@ describe('LaunchService', () => {
 
   function createService(overrides: Partial<LaunchServiceDeps> = {}) {
     return new LaunchService({
-      getRomSource: () => ({ getRom: async () => rom, fetchRaw }),
+      getRomSource: () => ({ getRom: async () => rom, fetchRaw, markPlayed }),
       getSettings: () => settings,
       paths: new DataPaths(dir, () => null),
       locateRetroArch: async () => install,
@@ -340,6 +341,7 @@ describe('LaunchService', () => {
       getRomSource: () => ({
         getRom: async () => ({ ...rom, has_simple_single_file: false }),
         fetchRaw,
+        markPlayed,
       }),
     });
 

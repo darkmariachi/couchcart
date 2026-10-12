@@ -42,6 +42,44 @@ export interface RomSummary {
   lastPlayed: string | null;
   hasMultipleFiles: boolean;
   md5: string | null;
+  createdAt: string;
+  /** Whether the ROM file is in the local cache. */
+  downloaded: boolean;
+}
+
+export interface RomDetail extends RomSummary {
+  platformName: string;
+  description: string | null;
+  releaseYear: number | null;
+  genres: string[];
+  coverLargePath: string | null;
+  lastSync: SyncReport | null;
+}
+
+export interface PlatformCoverage {
+  slug: string;
+  name: string;
+  romCount: number;
+  /** The installed core that will run this platform, or null when none is. */
+  core: string | null;
+  /** Cores that would work if installed; empty when the platform is not mapped at all. */
+  candidates: string[];
+}
+
+export interface SetupStatus {
+  complete: boolean;
+  deviceName: string;
+  cacheDir: string;
+  /** Free space on the cache folder's drive, when it can be determined. */
+  freeBytes: number | null;
+  fullscreen: boolean;
+}
+
+/** Saves found in RetroArch's own folders that match games in the library. */
+export interface ImportPreview {
+  saves: number;
+  states: number;
+  games: string[];
 }
 
 export interface RomQuery {
@@ -128,11 +166,26 @@ export interface IpcContract {
   'library:platforms': { request: undefined; response: PlatformSummary[] };
   'library:roms': { request: RomQuery; response: RomPage };
   'library:romAssets': { request: number; response: RomAssets };
+  'library:platformRoms': { request: number; response: RomSummary[] };
+  'library:recentlyPlayed': { request: undefined; response: RomSummary[] };
+  'library:romDetail': { request: number; response: RomDetail };
+  'library:coreCoverage': { request: undefined; response: PlatformCoverage[] };
   'debug:apiProbe': { request: undefined; response: ProbeFinding[] };
   'retroarch:status': { request: undefined; response: RetroArchStatus };
   /** Resolves once RetroArch is running; later changes arrive as `game:stateChanged`. */
   'game:play': { request: number; response: undefined };
   'game:state': { request: undefined; response: LaunchState };
+  /** Downloads into the cache without launching. */
+  'game:download': { request: number; response: undefined };
+  'game:deleteLocal': { request: number; response: undefined };
+  'setup:status': { request: undefined; response: SetupStatus };
+  /** Opens a folder picker; resolves with the (possibly unchanged) status. */
+  'setup:chooseCacheDir': { request: undefined; response: SetupStatus };
+  'setup:importPreview': { request: undefined; response: ImportPreview };
+  'setup:importSaves': { request: undefined; response: number };
+  'setup:complete': { request: undefined; response: SetupStatus };
+  'app:quit': { request: undefined; response: undefined };
+  'app:toggleFullscreen': { request: undefined; response: undefined };
   'saves:sync': { request: number; response: SyncReport };
   'saves:lastReport': { request: number; response: SyncReport | null };
   'saves:resolveConflict': { request: ConflictResolution; response: SyncReport };
@@ -188,7 +241,19 @@ export interface LauncherApi {
     platforms: Call<'library:platforms'>;
     roms: Call<'library:roms'>;
     romAssets: Call<'library:romAssets'>;
+    platformRoms: Call<'library:platformRoms'>;
+    recentlyPlayed: Call<'library:recentlyPlayed'>;
+    romDetail: Call<'library:romDetail'>;
+    coreCoverage: Call<'library:coreCoverage'>;
   };
+  setup: {
+    status: Call<'setup:status'>;
+    chooseCacheDir: Call<'setup:chooseCacheDir'>;
+    importPreview: Call<'setup:importPreview'>;
+    importSaves: Call<'setup:importSaves'>;
+    complete: Call<'setup:complete'>;
+  };
+  app: { quit: Call<'app:quit'>; toggleFullscreen: Call<'app:toggleFullscreen'> };
   debug: { apiProbe: Call<'debug:apiProbe'> };
   retroarch: { status: Call<'retroarch:status'> };
   saves: {
@@ -199,6 +264,8 @@ export interface LauncherApi {
   game: {
     play: Call<'game:play'>;
     state: Call<'game:state'>;
+    download: Call<'game:download'>;
+    deleteLocal: Call<'game:deleteLocal'>;
     /** Returns a function that removes the listener. */
     onStateChanged: (listener: (state: LaunchState) => void) => () => void;
   };

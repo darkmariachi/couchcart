@@ -1,5 +1,5 @@
 import type { spawn as nodeSpawn } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { LaunchState, RetroArchStatus, SyncReport } from '../../shared/ipc';
 import { downloadRom, isDownloaded, type RomContentSource } from '../downloads/romDownloader';
@@ -27,6 +27,7 @@ export interface LaunchableRom {
 
 export interface RomSource extends RomContentSource {
   getRom(id: number): Promise<LaunchableRom>;
+  markPlayed(id: number): Promise<void>;
 }
 
 export interface LaunchServiceDeps {
@@ -55,7 +56,7 @@ export class LaunchService {
   }
 
   async getRetroArchStatus(): Promise<RetroArchStatus> {
-    const install = await this.locate();
+    const install = await this.locateInstall();
     if (!install) {
       return {
         found: false,
@@ -85,37 +86,13 @@ export class LaunchService {
     try {
       const source = this.deps.getRomSource();
       const rom = await source.getRom(romId);
-      if (!rom.has_simple_single_file) {
-        throw new LauncherError(
-          'unsupported_rom',
-          'Multi-file and multi-disc games are not supported yet.',
-        );
-      }
+      this.requireSingleFile(rom);
 
       // Check everything RetroArch needs before spending time on a download.
       const install = await this.requireRetroArch();
       const core = this.requireCore(rom, install);
 
-      const romPath = this.deps.paths.romFile(rom.platform_slug, rom.fs_name);
-      const download = {
-        romId,
-        fileName: rom.fs_name,
-        sizeBytes: rom.fs_size_bytes,
-        md5: rom.md5_hash,
-        destination: romPath,
-      };
-      if (!(await isDownloaded(download))) {
-        this.setState({
-          phase: 'downloading',
-          romId,
-          receivedBytes: 0,
-          totalBytes: rom.fs_size_bytes,
-        });
-        await downloadRom(source, download, {
-          onProgress: (progress) => this.setState({ phase: 'downloading', romId, ...progress }),
-        });
-        this.setState({ phase: 'starting', romId });
-      }
+      const romPath = await this.ensureDownloaded(source, rom);
 
       // Pull newer saves from other PCs before the game reads them.
       this.setState({ phase: 'syncing', romId, stage: 'before-launch' });
@@ -130,17 +107,74 @@ export class LaunchService {
     }
   }
 
+  /** Puts a game in the cache without starting it. */
+  async download(romId: number): Promise<void> {
+    if (this.isBusy)
+      throw new LauncherError('busy', 'Another game is already starting or running.');
+
+    this.setState({ phase: 'starting', romId });
+    try {
+      const source = this.deps.getRomSource();
+      const rom = await source.getRom(romId);
+      this.requireSingleFile(rom);
+      await this.ensureDownloaded(source, rom);
+      this.setState({ phase: 'idle' });
+    } catch (error) {
+      log.warn(`Downloading ROM ${romId} failed`, error);
+      this.setState({ phase: 'failed', romId, error: toIpcError(error) });
+      throw error;
+    }
+  }
+
+  /** Removes a game from the cache. Saves and states are kept. */
+  async deleteLocal(romId: number): Promise<void> {
+    if (this.isBusy) throw new LauncherError('busy', 'A game is starting or running.');
+    const rom = await this.deps.getRomSource().getRom(romId);
+    const romPath = this.deps.paths.romFile(rom.platform_slug, rom.fs_name);
+    await Promise.all([rm(romPath, { force: true }), rm(`${romPath}.part`, { force: true })]);
+  }
+
+  private requireSingleFile(rom: LaunchableRom): void {
+    if (!rom.has_simple_single_file) {
+      throw new LauncherError(
+        'unsupported_rom',
+        'Multi-file and multi-disc games are not supported yet.',
+      );
+    }
+  }
+
+  /** Returns the path of the ROM in the cache, downloading it first when needed. */
+  private async ensureDownloaded(source: RomSource, rom: LaunchableRom): Promise<string> {
+    const romPath = this.deps.paths.romFile(rom.platform_slug, rom.fs_name);
+    const download = {
+      romId: rom.id,
+      fileName: rom.fs_name,
+      sizeBytes: rom.fs_size_bytes,
+      md5: rom.md5_hash,
+      destination: romPath,
+    };
+    if (await isDownloaded(download)) return romPath;
+
+    const progress = { phase: 'downloading', romId: rom.id } as const;
+    this.setState({ ...progress, receivedBytes: 0, totalBytes: rom.fs_size_bytes });
+    await downloadRom(source, download, {
+      onProgress: (update) => this.setState({ ...progress, ...update }),
+    });
+    this.setState({ phase: 'starting', romId: rom.id });
+    return romPath;
+  }
+
   private get isBusy(): boolean {
     return ['downloading', 'starting', 'syncing', 'running'].includes(this.state.phase);
   }
 
-  private locate(): Promise<RetroArchInstall | null> {
+  locateInstall(): Promise<RetroArchInstall | null> {
     const { executablePath, coresDir } = this.deps.getSettings().retroarch;
     return this.deps.locateRetroArch({ executablePath, coresDir });
   }
 
   private async requireRetroArch(): Promise<RetroArchInstall> {
-    const install = await this.locate();
+    const install = await this.locateInstall();
     if (install) return install;
     throw new LauncherError(
       'retroarch_not_found',
@@ -225,6 +259,12 @@ export class LaunchService {
       core,
       startedAt: new Date(startedAt).toISOString(),
     });
+
+    // Best effort: "recently played" in RomM is a convenience, not a reason to fail.
+    void this.deps
+      .getRomSource()
+      .markPlayed(rom.id)
+      .catch((error: unknown) => log.warn('Could not update last played', error));
 
     child.once('exit', (exitCode) => {
       const playedSeconds = Math.round((now() - startedAt) / 1000);
