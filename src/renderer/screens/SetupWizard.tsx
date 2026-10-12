@@ -219,8 +219,8 @@ function RetroArchStep({ onNext }: StepProps) {
       {retroarch.isPending && <p className={ui.muted}>Looking for RetroArch…</p>}
       {status && !status.found && (
         <p className={ui.error}>
-          RetroArch was not found. Install it (from retroarch.com or Steam), then choose “Check
-          again”. Games cannot start without it.
+          RetroArch was not found. It is free: install it from Steam or from retroarch.com, then
+          choose “Check again”. Games cannot start without it.
         </p>
       )}
       {status?.found && (
@@ -264,6 +264,22 @@ function RetroArchStep({ onNext }: StepProps) {
         <Focusable variant="button" onPress={recheck}>
           Check again
         </Focusable>
+        {status && !status.found && (
+          <>
+            <Focusable
+              variant="button"
+              onPress={() => void window.romm.app.openLink('retroarch-steam')}
+            >
+              Get RetroArch on Steam
+            </Focusable>
+            <Focusable
+              variant="button"
+              onPress={() => void window.romm.app.openLink('retroarch-website')}
+            >
+              Open retroarch.com
+            </Focusable>
+          </>
+        )}
       </div>
     </>
   );

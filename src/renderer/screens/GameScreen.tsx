@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   mdiChip,
@@ -13,11 +13,12 @@ import {
 import type { ConflictResolution, RomDetail, SyncReport } from '../../shared/ipc';
 import { assetUrl } from '../assets';
 import { errorMessage, unwrap } from '../api';
+import { MenuDialog } from '../components/Dialog';
 import { Focusable } from '../components/Focusable';
 import { Cover } from '../components/GameCard';
 import { Icon, PlatformIcon } from '../components/Icon';
 import ui from '../components/ui.module.css';
-import { formatSize, formatWhen, nextOption, shortCoreName } from '../format';
+import { formatSize, formatWhen, shortCoreName } from '../format';
 import { useDownloads, useRomDetail } from '../hooks';
 import { useControls } from '../input/controls';
 import { focusFirst, focusedElement } from '../input/focus';
@@ -57,6 +58,7 @@ export function GameScreen({ romId }: { romId: number }) {
     mutationFn: (favorite: boolean) => unwrap(window.romm.game.setFavorite({ romId, favorite })),
     onSettled: refresh,
   });
+  const [choosingCore, setChoosingCore] = useState(false);
   const cancelDownload = useMutation({
     mutationFn: () => unwrap(window.romm.downloads.cancel(romId)),
   });
@@ -159,12 +161,7 @@ export function GameScreen({ romId }: { romId: number }) {
               </Focusable>
 
               {rom.coreOptions.length > 1 && (
-                <Focusable
-                  variant="button"
-                  onPress={() =>
-                    setCore.mutate(nextOption([null, ...rom.coreOptions], rom.coreOverride))
-                  }
-                >
+                <Focusable variant="button" onPress={() => setChoosingCore(true)}>
                   <Icon path={mdiChip} />
                   {rom.core ? shortCoreName(rom.core) : 'No core'}
                   {rom.coreOverride ? '' : ' (automatic)'}
@@ -210,6 +207,25 @@ export function GameScreen({ romId }: { romId: number }) {
                   />
                 ))}
               </div>
+            )}
+
+            {choosingCore && (
+              <MenuDialog
+                title={`Core for ${rom.name}`}
+                onClose={() => setChoosingCore(false)}
+                items={[
+                  {
+                    label: `Automatic (the ${rom.platformName} setting)`,
+                    selected: rom.coreOverride === null,
+                    run: () => setCore.mutate(null),
+                  },
+                  ...rom.coreOptions.map((core) => ({
+                    label: shortCoreName(core),
+                    selected: rom.coreOverride === core,
+                    run: () => setCore.mutate(core),
+                  })),
+                ]}
+              />
             )}
 
             <SaveStatus

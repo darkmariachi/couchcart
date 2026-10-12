@@ -1,7 +1,9 @@
 import { useEffect, type ReactNode } from 'react';
 import { useControls, type Controls } from '../input/controls';
 import { focusFirst } from '../input/focus';
+import { mdiCheck } from '@mdi/js';
 import { Focusable } from './Focusable';
+import { Icon } from './Icon';
 import styles from './ui.module.css';
 
 interface DialogProps {
@@ -40,20 +42,27 @@ export function Dialog({ title, children, controls = {}, level = 20 }: DialogPro
 export interface MenuItem {
   label: string;
   run: () => void;
+  /** Ticks the item and gives it focus: for menus that pick one of several options. */
+  selected?: boolean;
 }
 
 export function MenuDialog(props: { title: string; items: MenuItem[]; onClose: () => void }) {
+  const showsSelection = props.items.some((item) => item.selected !== undefined);
   return (
     <Dialog title={props.title} controls={{ back: { label: 'Close', run: props.onClose } }}>
       {props.items.map((item) => (
         <Focusable
           key={item.label}
           className={styles.menuItem}
+          preferred={item.selected}
           onPress={() => {
             props.onClose();
             item.run();
           }}
         >
+          {showsSelection && (
+            <span className={styles.optionMark}>{item.selected && <Icon path={mdiCheck} />}</span>
+          )}
           {item.label}
         </Focusable>
       ))}

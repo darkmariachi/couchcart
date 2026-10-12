@@ -112,6 +112,7 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
   'app:toggleFullscreen': noRequest,
   'app:copyLogs': noRequest,
   'app:openLogsFolder': noRequest,
+  'app:openLink': z.enum(['retroarch-steam', 'retroarch-website']),
 
   'debug:apiProbe': noRequest,
 };
@@ -178,6 +179,7 @@ export function registerIpcHandlers(
     'app:toggleFullscreen': () => app.toggleFullscreen(),
     'app:copyLogs': () => app.copyLogs(),
     'app:openLogsFolder': () => app.openLogsFolder(),
+    'app:openLink': (link) => app.openLink(link),
 
     'debug:apiProbe': () => app.runApiProbe(),
   };

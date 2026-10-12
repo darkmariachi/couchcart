@@ -240,6 +240,9 @@ export interface SettingsPatch {
   platformCore?: { slug: string; core: string | null };
 }
 
+/** Pages the launcher can open; the renderer picks a name, never a URL. */
+export type ExternalLink = 'retroarch-steam' | 'retroarch-website';
+
 export type FolderSetting = 'cache' | 'retroarch' | 'cores';
 
 export interface ControllerInfo {
@@ -419,6 +422,8 @@ export interface IpcContract {
   /** Puts the recent log on the clipboard; resolves with the number of lines copied. */
   'app:copyLogs': { request: undefined; response: number };
   'app:openLogsFolder': { request: undefined; response: undefined };
+  /** Opens one of a fixed set of pages outside the launcher. */
+  'app:openLink': { request: ExternalLink; response: undefined };
 
   'debug:apiProbe': { request: undefined; response: ProbeFinding[] };
 }
@@ -536,6 +541,7 @@ export interface LauncherApi {
     toggleFullscreen: Call<'app:toggleFullscreen'>;
     copyLogs: Call<'app:copyLogs'>;
     openLogsFolder: Call<'app:openLogsFolder'>;
+    openLink: Call<'app:openLink'>;
     onOnlineChanged: Subscribe<'app:onlineChanged'>;
   };
   debug: { apiProbe: Call<'debug:apiProbe'> };

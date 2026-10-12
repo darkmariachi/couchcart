@@ -3,6 +3,7 @@ import { readdir, stat, statfs } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type {
   AccountOverview,
+  ExternalLink,
   AuthStatus,
   CollectionSummary,
   GridSource,
@@ -91,6 +92,7 @@ export interface LauncherAppOptions {
     toggleFullscreen: () => void;
     copyText: (text: string) => void;
     openFolder: (path: string) => void;
+    openExternal: (url: string) => void;
   };
 }
 
@@ -766,6 +768,11 @@ export class LauncherApp {
     if (file) this.options.shell.openFolder(dirname(file));
   }
 
+  /** Opens a page from a fixed list, so the UI can never make the app open an arbitrary URL. */
+  openLink(link: ExternalLink): undefined {
+    this.options.shell.openExternal(EXTERNAL_LINKS[link]);
+  }
+
   get launcherFullscreen(): boolean {
     return this.settings.get().launcherFullscreen;
   }
@@ -949,6 +956,12 @@ function withEntry(
   const others = Object.entries(map).filter(([existing]) => existing !== key);
   return Object.fromEntries(value === null ? others : [...others, [key, value]]);
 }
+
+const EXTERNAL_LINKS: Record<ExternalLink, string> = {
+  // Opens RetroArch's page in the Steam client itself, where it can be installed.
+  'retroarch-steam': 'steam://store/1118310',
+  'retroarch-website': 'https://www.retroarch.com/?page=platforms',
+};
 
 function accountKey(serverUrl: string, username: string): string {
   return `${serverUrl}|${username}`;

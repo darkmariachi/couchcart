@@ -144,6 +144,7 @@ if (!app.requestSingleInstanceLock()) {
         toggleFullscreen: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()),
         copyText: (text) => clipboard.writeText(text),
         openFolder: (path) => void shell.openPath(path),
+        openExternal: (url) => void shell.openExternal(url),
       },
     });
 

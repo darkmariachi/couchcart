@@ -45,6 +45,7 @@ function createApp(): LauncherApp {
       toggleFullscreen: () => {},
       copyText: () => {},
       openFolder: () => {},
+      openExternal: () => {},
     },
   });
 }
