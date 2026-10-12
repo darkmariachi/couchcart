@@ -305,3 +305,35 @@
   padding: 0.3rem 0;
   font-size: 1.05rem;
 }
+
+/* ---------- Signing in with a code ---------- */
+
+.pairing {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+}
+
+.pairingQr {
+  flex: none;
+  width: 15rem;
+  height: 15rem;
+  border-radius: 0.6rem;
+}
+
+.pairingUrl {
+  color: var(--brand-light);
+  font-size: 1.3rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* The code is read off a TV and typed on a phone: big, spaced out, unambiguous. */
+.pairingCode {
+  color: var(--text);
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 3.4rem;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  line-height: 1.3;
+}

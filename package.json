@@ -36,6 +36,7 @@
     "openapi-fetch": "^0.17.0",
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.9.10",
+    "qrcode-generator": "^2.0.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "typescript": "5.9",

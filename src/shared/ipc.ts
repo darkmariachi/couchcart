@@ -21,6 +21,25 @@ export interface AuthStatus {
   credentialsPersisted: boolean;
 }
 
+/** What to show the user while a pairing waits for their approval. */
+export interface PairingInfo {
+  userCode: string;
+  /** Page of the RomM web UI where the code is entered. */
+  verificationUrl: string;
+  /** The same page with the code filled in, for a QR code. */
+  completeUrl: string;
+  expiresAt: string;
+  intervalSeconds: number;
+}
+
+export type PairingStatus =
+  | { state: 'pending' }
+  | { state: 'approved'; auth: AuthStatus }
+  | { state: 'denied' }
+  | { state: 'expired' }
+  /** No pairing is in progress. */
+  | { state: 'none' };
+
 export interface LoginRequest {
   serverUrl: string;
   username: string;
@@ -339,6 +358,11 @@ export interface IpcContract {
   'auth:status': { request: undefined; response: AuthStatus };
   'auth:login': { request: LoginRequest; response: AuthStatus };
   'auth:logout': { request: undefined; response: AuthStatus };
+  /** Asks the server for a pairing code. The request is the server address. */
+  'auth:startPairing': { request: string; response: PairingInfo };
+  /** Checks whether the pairing was approved; signs in when it was. */
+  'auth:pairingStatus': { request: undefined; response: PairingStatus };
+  'auth:cancelPairing': { request: undefined; response: undefined };
   'account:overview': { request: undefined; response: AccountOverview };
 
   'library:platforms': { request: undefined; response: PlatformSummary[] };
@@ -455,6 +479,9 @@ export interface LauncherApi {
     status: Call<'auth:status'>;
     login: Call<'auth:login'>;
     logout: Call<'auth:logout'>;
+    startPairing: Call<'auth:startPairing'>;
+    pairingStatus: Call<'auth:pairingStatus'>;
+    cancelPairing: Call<'auth:cancelPairing'>;
   };
   account: { overview: Call<'account:overview'> };
   library: {

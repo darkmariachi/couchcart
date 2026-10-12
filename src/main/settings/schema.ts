@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
-export const CURRENT_SETTINGS_VERSION = 6;
+export const CURRENT_SETTINGS_VERSION = 7;
 
 const retroarchSchema = z.object({
   /** Null means "auto-detect"; set it to pin a specific install. */
@@ -19,6 +20,8 @@ export const settingsSchema = z.object({
   version: z.literal(CURRENT_SETTINGS_VERSION),
   serverUrl: z.url().nullable(),
   username: z.string().nullable(),
+  /** Identifies this install to RomM when pairing, so pairing again replaces the old one. */
+  installId: z.string().min(1),
   /** Shown in RomM next to saves uploaded from this PC. */
   deviceName: z.string().min(1),
   /** Id RomM assigned to this PC for the current account; null until first registered. */
@@ -83,6 +86,7 @@ export function defaultSettings(deviceName: string): Settings {
     serverUrl: null,
     username: null,
     deviceName,
+    installId: randomUUID(),
     ...structuredClone(V2_ADDITIONS),
     ...V3_ADDITIONS,
     ...V4_ADDITIONS,
@@ -109,6 +113,8 @@ const MIGRATIONS: Record<number, (old: RawSettings) => RawSettings> = {
     retroarch: { ...(v5['retroarch'] as object), hideTouchOverlay: true },
     version: 6,
   }),
+  // v7 added the install id used for pairing.
+  6: (v6) => ({ ...v6, installId: randomUUID(), version: 7 }),
 };
 
 /**

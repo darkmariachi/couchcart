@@ -17,6 +17,8 @@ import type {
   ImportPreview,
   LaunchState,
   LoginRequest,
+  PairingInfo,
+  PairingStatus,
   PlatformCoreSetting,
   PlatformCoverage,
   PlatformSummary,
@@ -46,7 +48,7 @@ import { locateRetroArch, type LocateOptions, type RetroArchInstall } from './la
 import type { CoverSource } from './library/coverProtocol';
 import { getLogFile, log, readRecentLog } from './logging/logger';
 import { DataPaths, safeSegment } from './paths';
-import { AuthSession } from './romm/auth';
+import { AuthSession, REQUESTED_SCOPES } from './romm/auth';
 import { createAuthenticatedFetch } from './romm/authenticatedFetch';
 import {
   RommClient,
@@ -58,6 +60,7 @@ import {
 } from './romm/client';
 import { CredentialStore, type Encryptor } from './romm/credentials';
 import { discoverServers } from './romm/discovery';
+import { pollPairing, startPairing, type PairingRequest } from './romm/pairing';
 import { LauncherError } from './errors';
 import { NetworkError, NotAuthenticatedError, RommApiError } from './romm/errors';
 import { SaveBackups } from './saves/backups';
@@ -119,6 +122,8 @@ export class LauncherApp {
   private readonly launcher: LaunchService;
   private readonly controllers: ControllerDetector;
   private connection: Connection | null = null;
+  /** A pairing waiting for approval. The device code in it never leaves this process. */
+  private pairing: { serverUrl: string; request: PairingRequest } | null = null;
   private online = true;
   private retroArchLookup: { key: string; at: number; install: RetroArchInstall | null } | null =
     null;
@@ -263,6 +268,64 @@ export class LauncherApp {
     this.switchAccount(serverUrl, user.username);
     this.setOnline(true);
     return this.status();
+  }
+
+  /**
+   * Starts signing in with a code: the user approves it from a browser that is already
+   * signed in to RomM, so no password is typed on this PC.
+   */
+  async startPairing(serverUrlInput: string): Promise<PairingInfo> {
+    const serverUrl = normalizeServerUrl(serverUrlInput);
+    const settings = this.settings.get();
+    const request = await startPairing(serverUrl, {
+      identifier: settings.installId,
+      name: settings.deviceName,
+      client: APP_ID,
+      platform: process.platform,
+      clientVersion: this.options.appVersion,
+      scopes: REQUESTED_SCOPES,
+    });
+    this.pairing = { serverUrl, request };
+    return {
+      userCode: request.userCode,
+      verificationUrl: request.verificationUrl,
+      completeUrl: request.completeUrl,
+      expiresAt: new Date(request.expiresAt).toISOString(),
+      intervalSeconds: request.intervalSeconds,
+    };
+  }
+
+  /** Checks on the pairing in progress and completes the sign-in once it is approved. */
+  async checkPairing(): Promise<PairingStatus> {
+    const pairing = this.pairing;
+    if (!pairing) return { state: 'none' };
+    if (Date.now() >= pairing.request.expiresAt) {
+      this.pairing = null;
+      return { state: 'expired' };
+    }
+
+    const poll = await pollPairing(pairing.serverUrl, pairing.request.deviceCode);
+    if (poll.status === 'pending') return { state: 'pending' };
+    this.pairing = null;
+    if (poll.status !== 'approved') return { state: poll.status };
+
+    const connection = this.connect(pairing.serverUrl);
+    connection.auth.adoptToken(poll.token.accessToken, poll.token.expiresAt);
+    const user = await connection.client.getCurrentUser();
+    this.connection = connection;
+    // Pairing registers this PC as a device in RomM and ties the token to it.
+    this.settings.update({
+      serverUrl: pairing.serverUrl,
+      username: user.username,
+      deviceId: poll.token.deviceId,
+    });
+    this.switchAccount(pairing.serverUrl, user.username);
+    this.setOnline(true);
+    return { state: 'approved', auth: this.status() };
+  }
+
+  cancelPairing(): undefined {
+    this.pairing = null;
   }
 
   logout(): AuthStatus {

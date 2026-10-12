@@ -89,6 +89,19 @@ export class AuthSession {
     this.setTokens(this.toTokenSet((await response.json()) as TokenResponse, null));
   }
 
+  /**
+   * Starts a session from a token obtained by pairing. Such a token is long-lived and has
+   * no refresh token: if the server ever rejects it, the user pairs or signs in again.
+   */
+  adoptToken(accessToken: string, expiresAt: number | null): void {
+    this.setTokens({
+      accessToken,
+      accessExpiresAt: expiresAt ?? Number.MAX_SAFE_INTEGER,
+      refreshToken: null,
+      refreshExpiresAt: null,
+    });
+  }
+
   logout(): void {
     this.tokens = null;
     this.store.clear();

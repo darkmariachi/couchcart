@@ -26,6 +26,9 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
     password: z.string().min(1).max(1024),
   }),
   'auth:logout': noRequest,
+  'auth:startPairing': serverUrl,
+  'auth:pairingStatus': noRequest,
+  'auth:cancelPairing': noRequest,
   'account:overview': noRequest,
 
   'library:platforms': noRequest,
@@ -123,6 +126,9 @@ export function registerIpcHandlers(
     'auth:status': () => app.status(),
     'auth:login': (request) => app.login(request),
     'auth:logout': () => app.logout(),
+    'auth:startPairing': (url) => app.startPairing(url),
+    'auth:pairingStatus': () => app.checkPairing(),
+    'auth:cancelPairing': () => app.cancelPairing(),
     'account:overview': () => app.getAccountOverview(),
 
     'library:platforms': () => app.listPlatforms(),

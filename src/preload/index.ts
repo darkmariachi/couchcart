@@ -30,6 +30,9 @@ const api: LauncherApi = {
     status: call('auth:status'),
     login: call('auth:login'),
     logout: call('auth:logout'),
+    startPairing: call('auth:startPairing'),
+    pairingStatus: call('auth:pairingStatus'),
+    cancelPairing: call('auth:cancelPairing'),
   },
   account: { overview: call('account:overview') },
   library: {

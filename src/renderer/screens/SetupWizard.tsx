@@ -2,14 +2,15 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AuthStatus } from '../../shared/ipc';
 import { errorMessage, unwrap } from '../api';
+import { Field } from '../components/Field';
 import { Focusable } from '../components/Focusable';
-import { OnScreenKeyboard } from '../components/OnScreenKeyboard';
 import { Screen } from '../components/Screen';
 import ui from '../components/ui.module.css';
 import { useSetupStatus } from '../hooks';
 import { useControls } from '../input/controls';
 import { focusFirst } from '../input/focus';
 import styles from './screens.module.css';
+import { SignInStep } from './SignInStep';
 
 interface StepProps {
   onNext: () => void;
@@ -64,40 +65,6 @@ export function SetupWizard({ auth, signInOnly }: WizardProps) {
         {step.body}
       </div>
     </Screen>
-  );
-}
-
-/** A value the user edits with the on-screen keyboard. */
-function Field(props: {
-  label: string;
-  value: string;
-  secret?: boolean;
-  placeholder?: string;
-  onChange: (value: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const shown = props.secret ? '•'.repeat(props.value.length) : props.value;
-  return (
-    <>
-      <Focusable className={styles.field} onPress={() => setEditing(true)}>
-        <span className={styles.fieldLabel}>{props.label}</span>
-        <span className={`${styles.fieldValue} ${shown ? '' : ui.muted}`}>
-          {shown || props.placeholder || 'Press A to enter'}
-        </span>
-      </Focusable>
-      {editing && (
-        <OnScreenKeyboard
-          title={props.label}
-          initialValue={props.value}
-          secret={props.secret}
-          onCancel={() => setEditing(false)}
-          onSubmit={(value) => {
-            props.onChange(value);
-            setEditing(false);
-          }}
-        />
-      )}
-    </>
   );
 }
 
@@ -156,71 +123,6 @@ function ServerStep(props: StepProps & { serverUrl: string; onChange: (url: stri
       )}
       {discover.isError && <p className={ui.error}>{errorMessage(discover.error)}</p>}
       {probe.isError && <p className={ui.error}>{errorMessage(probe.error)}</p>}
-    </>
-  );
-}
-
-function SignInStep(props: StepProps & { auth: AuthStatus; serverUrl: string }) {
-  const queryClient = useQueryClient();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-
-  const login = useMutation({
-    mutationFn: () =>
-      unwrap(window.romm.auth.login({ serverUrl: props.serverUrl, username, password })),
-    onSuccess: (status) => {
-      queryClient.setQueryData(['auth'], status);
-      props.onNext();
-    },
-    // The password leaves memory as soon as the attempt finishes, either way.
-    onSettled: () => setPassword(''),
-  });
-  const logout = useMutation({
-    mutationFn: () => unwrap(window.romm.auth.logout()),
-    onSuccess: (status) => {
-      queryClient.clear();
-      queryClient.setQueryData(['auth'], status);
-    },
-  });
-
-  if (props.auth.loggedIn) {
-    return (
-      <>
-        <p>
-          Signed in as <strong>{props.auth.username}</strong>.
-        </p>
-        <div className={ui.row}>
-          <Focusable variant="primary" preferred onPress={props.onNext}>
-            Continue
-          </Focusable>
-          <Focusable variant="button" onPress={() => logout.mutate()}>
-            Use a different account
-          </Focusable>
-        </div>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Field label="Username" value={username} onChange={setUsername} />
-      <Field label="Password" value={password} secret onChange={setPassword} />
-      <div className={ui.row}>
-        <Focusable
-          variant="primary"
-          disabled={!username || !password || login.isPending}
-          onPress={() => login.mutate()}
-        >
-          {login.isPending ? 'Signing in…' : 'Sign in'}
-        </Focusable>
-      </div>
-      {login.isError && <p className={ui.error}>{errorMessage(login.error)}</p>}
-      {!props.auth.credentialsPersisted && (
-        <p className={ui.muted}>
-          This PC has no secure credential storage, so you will need to sign in again after
-          restarting.
-        </p>
-      )}
     </>
   );
 }
