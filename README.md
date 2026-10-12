@@ -5,7 +5,7 @@ the library, downloads games, starts them in a locally installed RetroArch, and 
 through RomM. It is a launcher and sync client: RetroArch does all emulation and must be
 installed separately.
 
-Status: Milestone 1 (project skeleton, typed RomM client, secure login, API debug screen).
+Status: Milestone 3 (browse via a debug screen, download, launch in RetroArch, save and state sync).
 
 ## Development
 

@@ -104,3 +104,15 @@ Found with the "API probe" button on the debug screen (read-only) and an end-to-
   carries no `Accept-Ranges` header.
 - **ROM hash**: `md5_hash` on a single-file ROM is the MD5 of the file as downloaded.
 - **Save hash**: `content_hash` on a save is the MD5 of the save file.
+
+## Save behaviour observed while building sync
+
+- Other RomM clients store the emulator's own save in slot `autosave` with `emulator` set to
+  the core name without `_libretro` (for example `mupen64plus_next`). The launcher does the same.
+- An upload with a slot is stored under a timestamped name,
+  `<game> [YYYY-MM-DD_HH-MM-SS].<ext>`, as a new version. `file_extension` has no leading dot.
+- Uploading content identical to an existing version in the slot does not create a new row:
+  the existing one is reused and its `updated_at` moves forward. "Current" is therefore the
+  version with the latest `updated_at`, not the highest id.
+- `POST /api/devices` with `allow_existing` returns a stable `device_id`, which then appears as
+  `origin_device_id` on saves uploaded with it.
