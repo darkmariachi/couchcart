@@ -18,7 +18,8 @@
     "dist": "electron-vite build && electron-builder --win --publish never",
     "notices": "node scripts/third-party-notices.mjs",
     "format:check": "prettier --check .",
-    "dist:linux": "electron-vite build && electron-builder --linux --publish never"
+    "dist:linux": "electron-vite build && electron-builder --linux --publish never",
+    "steam-art": "electron scripts/make-steam-art.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

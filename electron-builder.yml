@@ -15,6 +15,11 @@ files:
   - THIRD_PARTY_NOTICES.md
 asar: true
 
+# Artwork for adding the launcher to Steam, as loose files the user can browse to.
+extraResources:
+  - from: assets/steam
+    to: steam-art
+
 win:
   icon: build/icon.png
   target:

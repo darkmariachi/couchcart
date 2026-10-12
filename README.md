@@ -230,18 +230,27 @@ RetroArch menu.
 
 ### Artwork
 
-Steam does not fetch artwork for non-Steam games. In the library, right-click the game →
-**Manage → Set custom artwork** for the cover; right-click the banner area of the game's page for
-the background and logo. The sizes Steam uses:
+Steam does not fetch artwork for non-Steam games, so Couchcart comes with its own. The files are
+in the `resourcessteam-art` folder next to the program (for the installer,
+`%LOCALAPPDATA%ProgramsCouchcart
+esourcessteam-art`), and in
+[`assets/steam`](assets/steam) in this repository.
 
-| Slot                      | Size        |
-| ------------------------- | ----------- |
-| Cover (portrait capsule)  | 600 × 900   |
-| Wide cover (recent games) | 920 × 430   |
-| Background (hero)         | 3840 × 1240 |
-| Logo (transparent PNG)    | 1280 × 720  |
+<p align="center">
+  <img src="assets/steam/wide-cover.png" alt="The wide Steam cover for Couchcart" width="460">
+</p>
 
-`build/icon.png` in this repository is the app icon and can be used as a starting point.
+| File             | Where it goes in Steam                                                      |
+| ---------------- | --------------------------------------------------------------------------- |
+| `cover.png`      | Library: right-click the game → **Manage → Set custom artwork**             |
+| `wide-cover.png` | The same menu, used from the "Recent games" shelf at the top of the library |
+| `hero.jpg`       | The game's page: right-click the banner → **Set custom background**         |
+| `logo.png`       | The game's page: right-click the banner → **Set custom logo**               |
+
+For the icon, open the entry's **Properties** and click the icon square; the program's own icon
+is used if you leave it alone.
+
+`npm run steam-art` draws the files again from `scripts/make-steam-art.mjs`.
 
 ### Steam and controllers
 
@@ -369,6 +378,7 @@ npm run dev
 | `npm run api:fetch -- <url>`         | Download the OpenAPI spec from a RomM instance       |
 | `npm run api:types`                  | Regenerate `src/main/romm/schema.d.ts` from the spec |
 | `npm run icon`                       | Regenerate `build/icon.png`                          |
+| `npm run steam-art`                  | Regenerate the Steam artwork in `assets/steam`       |
 | `npm run notices`                    | Regenerate `THIRD_PARTY_NOTICES.md`                  |
 
 ### Building
