@@ -68,7 +68,8 @@ RetroArch handles input once a game is running.
 - **Open the RetroArch menu:** hold Start for two seconds (change this in Settings → Controllers).
   On an Xbox controller the Guide button also works. From the menu you can save and load states,
   remap buttons, and quit.
-- **Quit:** RetroArch menu → Quit. A dedicated quit combination can be turned on in Settings.
+- **Quit:** RetroArch menu → Close Content (or Quit). Either one ends the session and returns to
+  the launcher. A dedicated quit combination can be turned on in Settings.
 - When RetroArch closes, the launcher comes back and syncs your progress.
 
 ## Controllers
@@ -181,8 +182,13 @@ Everything lives in `%APPDATA%\romm-launcher` (`~/.config/romm-launcher` on Linu
 | `sync.db`            | What was last synced, and the remembered library for offline use |
 | `logs/launcher.log`  | Log files (five files of 1 MB at most)                           |
 
-Your own RetroArch configuration is not modified. The launcher passes its save folders and
-controller assignment to RetroArch for that one session only.
+Your own RetroArch configuration is not modified. For each session the launcher passes a few
+settings on top of it:
+
+- its save and state folders, and the controller assignment;
+- quit when content is closed, so you land back in the launcher;
+- RetroArch's on-screen touch buttons off (Settings → RetroArch turns them back on);
+- RetroArch's own cloud sync off, so two systems do not sync the same saves.
 
 ## Troubleshooting
 

@@ -147,6 +147,7 @@ export interface SettingsView {
     configuredCoresDir: string | null;
     coresDir: string | null;
     fullscreen: boolean;
+    hideTouchOverlay: boolean;
     extraArgs: string;
   };
   cache: {
@@ -169,6 +170,7 @@ export interface SettingsPatch {
   saveBackupCount?: number;
   launcherFullscreen?: boolean;
   retroarchFullscreen?: boolean;
+  hideTouchOverlay?: boolean;
   retroarchExtraArgs?: string;
   /** Null returns to auto-detection. */
   retroarchPath?: string | null;

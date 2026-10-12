@@ -74,6 +74,7 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
     saveBackupCount: z.number().int().min(1).max(1000).optional(),
     launcherFullscreen: z.boolean().optional(),
     retroarchFullscreen: z.boolean().optional(),
+    hideTouchOverlay: z.boolean().optional(),
     retroarchExtraArgs: z.string().max(1000).optional(),
     retroarchPath: path.nullable().optional(),
     coresDir: path.nullable().optional(),

@@ -269,7 +269,12 @@ export class LaunchService {
     ]);
     writeFileAtomicSync(
       paths.launchConfigFile,
-      buildLaunchConfig({ savesDir, statesDir, extra: await this.deps.getControllerSettings() }),
+      buildLaunchConfig({
+        savesDir,
+        statesDir,
+        hideTouchOverlay: settings.hideTouchOverlay,
+        extra: await this.deps.getControllerSettings(),
+      }),
     );
 
     const romPath = await resolveLaunchTarget(plan);

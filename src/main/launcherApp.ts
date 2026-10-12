@@ -475,6 +475,7 @@ export class LauncherApp {
         configuredCoresDir: settings.retroarch.coresDir,
         coresDir: install?.coresDir ?? null,
         fullscreen: settings.retroarch.fullscreen,
+        hideTouchOverlay: settings.retroarch.hideTouchOverlay,
         extraArgs: settings.retroarch.extraArgs.join(' '),
       },
       cache: {
@@ -496,6 +497,7 @@ export class LauncherApp {
     const current = this.settings.get();
     const retroarch = { ...current.retroarch };
     if (patch.retroarchFullscreen !== undefined) retroarch.fullscreen = patch.retroarchFullscreen;
+    if (patch.hideTouchOverlay !== undefined) retroarch.hideTouchOverlay = patch.hideTouchOverlay;
     if (patch.retroarchExtraArgs !== undefined) {
       retroarch.extraArgs = patch.retroarchExtraArgs.split(/\s+/).filter(Boolean);
     }

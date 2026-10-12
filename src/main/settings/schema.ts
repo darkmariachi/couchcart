@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const CURRENT_SETTINGS_VERSION = 5;
+export const CURRENT_SETTINGS_VERSION = 6;
 
 const retroarchSchema = z.object({
   /** Null means "auto-detect"; set it to pin a specific install. */
@@ -9,6 +9,8 @@ const retroarchSchema = z.object({
   coresDir: z.string().nullable(),
   fullscreen: z.boolean(),
   extraArgs: z.array(z.string()),
+  /** Turns off RetroArch's on-screen touch buttons, which a controller player never needs. */
+  hideTouchOverlay: z.boolean(),
 });
 
 const gamepadCombo = z.enum(['keep', 'none', 'hold_start', 'hold_select', 'start_select', 'l3_r3']);
@@ -50,7 +52,13 @@ export const settingsSchema = z.object({
 export type Settings = z.infer<typeof settingsSchema>;
 
 const V2_ADDITIONS = {
-  retroarch: { executablePath: null, coresDir: null, fullscreen: true, extraArgs: [] },
+  retroarch: {
+    executablePath: null,
+    coresDir: null,
+    fullscreen: true,
+    extraArgs: [],
+    hideTouchOverlay: true,
+  },
   cacheDir: null,
   coreOverrides: { platforms: {}, games: {} },
 } satisfies Partial<Settings>;
@@ -95,6 +103,12 @@ const MIGRATIONS: Record<number, (old: RawSettings) => RawSettings> = {
   3: (v3) => ({ ...v3, ...V4_ADDITIONS, version: 4 }),
   // v5 added controller assignment and cache retention (Milestone 5).
   4: (v4) => ({ ...v4, ...structuredClone(V5_ADDITIONS), version: 5 }),
+  // v6 added hiding RetroArch's touch overlay.
+  5: (v5) => ({
+    ...v5,
+    retroarch: { ...(v5['retroarch'] as object), hideTouchOverlay: true },
+    version: 6,
+  }),
 };
 
 /**

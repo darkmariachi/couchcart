@@ -81,6 +81,7 @@ describe('launch config and arguments', () => {
     const config = buildLaunchConfig({
       savesDir: 'C:\\Data\\saves\\n64',
       statesDir: 'C:\\Data\\states\\n64',
+      hideTouchOverlay: true,
     });
 
     expect(config).toContain('savefile_directory = "C:/Data/saves/n64"\n');
@@ -88,6 +89,37 @@ describe('launch config and arguments', () => {
     expect(config).toContain('sort_savefiles_enable = "false"');
     expect(config).toContain('sort_savestates_by_content_enable = "false"');
     expect(config).toContain('config_save_on_exit = "false"');
+  });
+
+  it('returns to the launcher on Close Content and leaves saves to one sync system', () => {
+    const config = buildLaunchConfig({ savesDir: '/s', statesDir: '/t', hideTouchOverlay: true });
+
+    expect(config).toContain('quit_on_close_content = "1"');
+    expect(config).toContain('cloud_sync_enable = "false"');
+  });
+
+  it('hides the touch overlay only when asked to', () => {
+    const base = { savesDir: '/s', statesDir: '/t' };
+
+    expect(buildLaunchConfig({ ...base, hideTouchOverlay: true })).toContain(
+      'input_overlay_enable = "false"',
+    );
+    expect(buildLaunchConfig({ ...base, hideTouchOverlay: false })).not.toContain(
+      'input_overlay_enable',
+    );
+  });
+
+  it('does not let extra settings replace the save folders', () => {
+    const config = buildLaunchConfig({
+      savesDir: '/s',
+      statesDir: '/t',
+      hideTouchOverlay: false,
+      extra: { savefile_directory: '/elsewhere', input_player1_reserved_device: 'pad' },
+    });
+
+    expect(config).toContain('savefile_directory = "/s"');
+    expect(config).not.toContain('/elsewhere');
+    expect(config).toContain('input_player1_reserved_device = "pad"');
   });
 
   it('passes the ROM path as one argument, untouched', () => {

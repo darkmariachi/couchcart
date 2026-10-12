@@ -99,6 +99,11 @@ export function SettingsScreen() {
               value={view.retroarch.fullscreen ? 'On' : 'Off'}
               onPress={() => update.mutate({ retroarchFullscreen: !view.retroarch.fullscreen })}
             />
+            <Row
+              label="On-screen touch buttons"
+              value={view.retroarch.hideTouchOverlay ? 'Hidden' : "RetroArch's own setting"}
+              onPress={() => update.mutate({ hideTouchOverlay: !view.retroarch.hideTouchOverlay })}
+            />
             <TextRow
               label="Extra launch options"
               value={view.retroarch.extraArgs}

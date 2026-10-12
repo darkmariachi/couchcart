@@ -81,6 +81,7 @@ describe('SettingsStore', () => {
       coresDir: null,
       fullscreen: true,
       extraArgs: [],
+      hideTouchOverlay: true,
     });
     expect(settings.coreOverrides).toEqual({ platforms: {}, games: {} });
     expect(existsSync(`${file()}.invalid`)).toBe(false);
