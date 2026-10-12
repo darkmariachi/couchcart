@@ -577,6 +577,7 @@
 }
 
 .key {
+  justify-content: center;
   min-width: 3rem;
   height: 3rem;
   padding: 0 0.6rem;
@@ -634,4 +635,37 @@
   padding: 0 1.2rem;
   color: var(--text-muted);
   font-size: 0.95rem;
+}
+
+/* Completions above the keys: one line, cut off rather than wrapped. */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: center;
+  gap: 0.5rem;
+  /* Room for two rows, so full game names fit; fixed so the keys below never move. */
+  width: 46rem;
+  max-width: 100%;
+  height: 6.2rem;
+  /* Padding keeps the focus ring of the outermost suggestions from being cut off. */
+  padding: 0.3rem;
+  overflow: hidden;
+  font-size: 0.95rem;
+}
+
+.suggestion {
+  flex: 0 0 auto;
+  max-width: 22rem;
+  padding: 0.45rem 0.9rem;
+  overflow: hidden;
+  border-radius: 100px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestion:focus {
+  transform: none;
 }

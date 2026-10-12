@@ -337,6 +337,8 @@ export interface IpcContract {
   'library:gridRoms': { request: GridSource; response: RomSummary[] };
   'library:recentlyAdded': { request: undefined; response: RomSummary[] };
   'library:collections': { request: undefined; response: CollectionSummary[] };
+  /** A few game names matching what has been typed, for search suggestions. */
+  'library:suggest': { request: string; response: string[] };
   'library:recentlyPlayed': { request: undefined; response: RomSummary[] };
   'library:romDetail': { request: number; response: RomDetail };
   'library:coreCoverage': { request: undefined; response: PlatformCoverage[] };
@@ -452,6 +454,7 @@ export interface LauncherApi {
     gridRoms: Call<'library:gridRoms'>;
     recentlyAdded: Call<'library:recentlyAdded'>;
     collections: Call<'library:collections'>;
+    suggest: Call<'library:suggest'>;
     recentlyPlayed: Call<'library:recentlyPlayed'>;
     romDetail: Call<'library:romDetail'>;
     coreCoverage: Call<'library:coreCoverage'>;

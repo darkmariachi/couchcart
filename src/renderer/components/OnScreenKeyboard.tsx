@@ -14,6 +14,11 @@ interface OnScreenKeyboardProps {
   secret?: boolean;
   onSubmit: (value: string) => void;
   onCancel: () => void;
+  /**
+   * Completions for what has been typed so far. Choosing one submits it. Must keep the
+   * same identity between renders (wrap it in useCallback), or it runs on every render.
+   */
+  suggest?: (typed: string) => string[] | Promise<string[]>;
 }
 
 /**
@@ -26,6 +31,7 @@ export function OnScreenKeyboard({
   secret,
   onSubmit,
   onCancel,
+  suggest,
 }: OnScreenKeyboardProps) {
   const [value, setValue] = useState(initialValue);
   const [shift, setShift] = useState(false);
@@ -42,12 +48,33 @@ export function OnScreenKeyboard({
 
   useEffect(() => {
     captureTextKeys((key) => {
-      if (key === 'Enter') submitCurrent.current();
-      else if (key === 'Backspace') erase();
+      if (key === 'Enter') {
+        // Enter on a highlighted suggestion picks it; anywhere else it submits the text.
+        const focused = document.activeElement;
+        const onSuggestion =
+          focused instanceof HTMLElement && focused.classList.contains(styles.suggestion ?? '');
+        if (onSuggestion) focused.click();
+        else submitCurrent.current();
+      } else if (key === 'Backspace') erase();
       else type(key);
     });
     return () => captureTextKeys(null);
   }, []);
+
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    if (!suggest) return;
+    let stale = false;
+    // A short pause, so a fast typist does not trigger a lookup per key.
+    const timer = setTimeout(async () => {
+      const found = await suggest(value);
+      if (!stale) setSuggestions(found);
+    }, 160);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [value, suggest]);
 
   const rows = symbols ? SYMBOLS : LETTERS;
   return (
@@ -65,6 +92,26 @@ export function OnScreenKeyboard({
         {secret ? '•'.repeat(value.length) : value}
         <span className={styles.caret} />
       </div>
+
+      {suggest && (
+        // Always takes up its space, so the keys do not jump when suggestions appear.
+        <div className={styles.suggestions}>
+          {suggestions.map((suggestion) => (
+            <Focusable
+              key={suggestion}
+              className={styles.suggestion}
+              onPress={() => onSubmit(suggestion)}
+            >
+              {suggestion}
+            </Focusable>
+          ))}
+          {suggestions.length === 0 && (
+            <span className={styles.muted}>
+              {value.trim().length < 2 ? 'Suggestions appear as you type' : 'No matching games'}
+            </span>
+          )}
+        </div>
+      )}
 
       {rows.map((row, rowIndex) => (
         <div key={row} className={styles.keyRow}>

@@ -25,7 +25,11 @@ import { GridScreen } from './screens/GridScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { SetupWizard } from './screens/SetupWizard';
-import { useCurrentEntry, useUi } from './store/ui';
+import { suggestGlobally } from './librarySearch';
+import { useCurrentEntry, useSection, useUi } from './store/ui';
+
+/** The top bar's sections, in the order LB/RB step through them. */
+const SECTIONS = ['home', 'platforms', 'collections', 'downloads', 'settings'] as const;
 
 export function App() {
   return (
@@ -46,7 +50,27 @@ function Shell() {
   const { push, reset } = useUi();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searching, setSearching] = useState(false);
-  useControls({ start: { label: 'Menu', run: () => setMenuOpen(true) } }, { level: 0 });
+  const section = useSection();
+  const goTo = useUi((state) => state.goTo);
+  const stepSection = (step: number) => {
+    const index = SECTIONS.indexOf(section as (typeof SECTIONS)[number]);
+    // From a screen outside the bar (the debug tools), either button returns to Home.
+    const target =
+      index === -1 ? 'home' : SECTIONS[(index + step + SECTIONS.length) % SECTIONS.length];
+    if (target) goTo({ name: target });
+  };
+  const libraryReady = Boolean(setup.data?.complete && auth.data?.loggedIn);
+  useControls(
+    {
+      start: { label: 'Menu', run: () => setMenuOpen(true) },
+      // LB/RB move along the top bar from anywhere, like tabs.
+      ...(libraryReady && {
+        lb: { label: 'Previous tab', run: () => stepSection(-1) },
+        rb: { label: 'Next tab', run: () => stepSection(1) },
+      }),
+    },
+    { level: 0 },
+  );
 
   if (auth.isError || setup.isError) {
     return <p className={ui.error}>{errorMessage(auth.error ?? setup.error)}</p>;
@@ -96,6 +120,7 @@ function Shell() {
         <OnScreenKeyboard
           title="Search your library"
           initialValue=""
+          suggest={suggestGlobally}
           onCancel={() => setSearching(false)}
           onSubmit={(value) => {
             setSearching(false);

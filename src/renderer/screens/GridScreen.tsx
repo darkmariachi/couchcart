@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { mdiFilterVariant, mdiMagnify, mdiSort } from '@mdi/js';
 import type { GridSource, RomSummary } from '../../shared/ipc';
 import { errorMessage } from '../api';
@@ -10,6 +10,8 @@ import { Screen } from '../components/Screen';
 import ui from '../components/ui.module.css';
 import { VirtualGrid } from '../components/VirtualGrid';
 import { nextOption } from '../format';
+import { suggestGlobally } from '../librarySearch';
+import { suggestNames } from '../suggest';
 import { useGridRoms, usePlatforms } from '../hooks';
 import { useControls } from '../input/controls';
 import { focusFirst, focusedElement } from '../input/focus';
@@ -79,21 +81,15 @@ export function GridScreen({ source, title }: { source: GridSource; title: strin
     if (!typing && !focusedElement()) focusFirst();
   }, [games, typing]);
 
-  // LB/RB step through platforms, as tabs would.
-  const all = platforms.data ?? [];
-  const platformIndex =
-    source.type === 'platform' ? all.findIndex((entry) => entry.id === source.platformId) : -1;
-  const platform = all[platformIndex];
-  const neighbour = (step: number) => all[(platformIndex + step + all.length) % all.length];
-  const switchTo = (step: number) => {
-    const target = neighbour(step);
-    if (!target || target.id === platform?.id) return;
-    replace({
-      name: 'grid',
-      title: target.name,
-      source: { type: 'platform', platformId: target.id },
-    });
-  };
+  const platform =
+    source.type === 'platform'
+      ? platforms.data?.find((candidate) => candidate.id === source.platformId)
+      : undefined;
+
+  // Filtering a platform or collection suggests from the games in it, which are already
+  // loaded; a library search asks the server.
+  const names = useMemo(() => (roms.data ?? []).map((rom) => rom.name), [roms.data]);
+  const suggestFromList = useCallback((typed: string) => suggestNames(names, typed), [names]);
 
   const cycleSort = () => setSort(nextOption(SORT_ORDER, sort === 'relevance' ? 'added' : sort));
   const submitText = (value: string) => {
@@ -121,11 +117,6 @@ export function GridScreen({ source, title }: { source: GridSource; title: strin
         label: `Sort: ${sort === 'relevance' ? 'Best match' : SORT_LABELS[sort]}`,
         run: cycleSort,
       },
-      ...(platform &&
-        all.length > 1 && {
-          lb: { label: neighbour(-1)?.name ?? 'Previous', run: () => switchTo(-1) },
-          rb: { label: neighbour(1)?.name ?? 'Next', run: () => switchTo(1) },
-        }),
     },
     { level: 10 },
   );
@@ -199,6 +190,7 @@ export function GridScreen({ source, title }: { source: GridSource; title: strin
           initialValue={isSearch ? '' : filter}
           onCancel={() => setTyping(false)}
           onSubmit={submitText}
+          suggest={isSearch ? suggestGlobally : suggestFromList}
         />
       )}
     </Screen>

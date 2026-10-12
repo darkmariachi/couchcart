@@ -290,6 +290,23 @@ export class LauncherApp {
     return this.withLocalFacts(roms);
   }
 
+  /**
+   * Names of games matching what has been typed so far, best matches first, for search
+   * suggestions. Suggestions are a convenience, so any failure simply yields none.
+   */
+  async suggestGames(term: string): Promise<string[]> {
+    try {
+      const page = await this.requireConnection().client.listRoms({
+        search: term,
+        orderBy: '',
+        limit: 30,
+      });
+      return page.items.map((rom) => rom.name ?? rom.fs_name_no_ext);
+    } catch {
+      return [];
+    }
+  }
+
   /** The user's collections: their own, smart ones, and those RomM derives from metadata. */
   async listCollections(): Promise<CollectionSummary[]> {
     const collections = await this.cached('collections', async () => {

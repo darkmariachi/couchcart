@@ -38,6 +38,7 @@ const api: LauncherApi = {
     gridRoms: call('library:gridRoms'),
     recentlyAdded: call('library:recentlyAdded'),
     collections: call('library:collections'),
+    suggest: call('library:suggest'),
     recentlyPlayed: call('library:recentlyPlayed'),
     romDetail: call('library:romDetail'),
     coreCoverage: call('library:coreCoverage'),
