@@ -4,17 +4,19 @@ import { pathToFileURL } from 'node:url';
 import {
   BrowserWindow,
   app,
+  clipboard,
   dialog,
   protocol,
   safeStorage,
   session,
+  shell,
   type IpcMainInvokeEvent,
 } from 'electron';
 import type { IpcEvents, LaunchState } from '../shared/ipc';
 import { registerIpcHandlers } from './ipc/handlers';
 import { LauncherApp } from './launcherApp';
 import { COVER_SCHEME, createCoverHandler } from './library/coverProtocol';
-import { log } from './logging/logger';
+import { enableFileLogging, log } from './logging/logger';
 import type { Encryptor } from './romm/credentials';
 
 // Set by electron-vite while developing; absent in a packaged build.
@@ -111,6 +113,8 @@ if (!app.requestSingleInstanceLock()) {
       callback(false),
     );
 
+    enableFileLogging(join(app.getPath('userData'), 'logs', 'launcher.log'));
+
     const launcher = new LauncherApp({
       dataDir: app.getPath('userData'),
       hostname: hostname(),
@@ -130,6 +134,8 @@ if (!app.requestSingleInstanceLock()) {
         },
         quit: () => app.quit(),
         toggleFullscreen: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()),
+        copyText: (text) => clipboard.writeText(text),
+        openFolder: (path) => void shell.openPath(path),
       },
     });
 

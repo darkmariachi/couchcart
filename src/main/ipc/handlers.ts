@@ -96,6 +96,8 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
   'app:online': noRequest,
   'app:quit': noRequest,
   'app:toggleFullscreen': noRequest,
+  'app:copyLogs': noRequest,
+  'app:openLogsFolder': noRequest,
 
   'debug:apiProbe': noRequest,
 };
@@ -155,6 +157,8 @@ export function registerIpcHandlers(
     'app:online': () => app.isOnline(),
     'app:quit': () => app.quit(),
     'app:toggleFullscreen': () => app.toggleFullscreen(),
+    'app:copyLogs': () => app.copyLogs(),
+    'app:openLogsFolder': () => app.openLogsFolder(),
 
     'debug:apiProbe': () => app.runApiProbe(),
   };

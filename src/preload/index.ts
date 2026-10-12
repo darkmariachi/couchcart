@@ -82,6 +82,8 @@ const api: LauncherApi = {
     online: call('app:online'),
     quit: call('app:quit'),
     toggleFullscreen: call('app:toggleFullscreen'),
+    copyLogs: call('app:copyLogs'),
+    openLogsFolder: call('app:openLogsFolder'),
     onOnlineChanged: subscribe('app:onlineChanged'),
   },
   debug: { apiProbe: call('debug:apiProbe') },

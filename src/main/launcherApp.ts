@@ -40,7 +40,7 @@ import { DEFAULT_CORES, listInstalledCores, resolveCore } from './launcher/cores
 import { LaunchService, emulatorName, type LaunchableRom } from './launcher/launchService';
 import { locateRetroArch, type LocateOptions, type RetroArchInstall } from './launcher/retroarch';
 import type { CoverSource } from './library/coverProtocol';
-import { log } from './logging/logger';
+import { getLogFile, log, readRecentLog } from './logging/logger';
 import { DataPaths, safeSegment } from './paths';
 import { AuthSession } from './romm/auth';
 import { createAuthenticatedFetch } from './romm/authenticatedFetch';
@@ -85,6 +85,8 @@ export interface LauncherAppOptions {
     choosePath: (kind: 'directory' | 'file', startIn: string) => Promise<string | null>;
     quit: () => void;
     toggleFullscreen: () => void;
+    copyText: (text: string) => void;
+    openFolder: (path: string) => void;
   };
 }
 
@@ -584,6 +586,18 @@ export class LauncherApp {
 
   toggleFullscreen(): undefined {
     this.options.shell.toggleFullscreen();
+  }
+
+  /** Copies the recent log (already free of credentials) for pasting into a bug report. */
+  copyLogs(): number {
+    const text = readRecentLog();
+    this.options.shell.copyText(text);
+    return text ? text.trimEnd().split('\n').length : 0;
+  }
+
+  openLogsFolder(): undefined {
+    const file = getLogFile();
+    if (file) this.options.shell.openFolder(dirname(file));
   }
 
   get launcherFullscreen(): boolean {

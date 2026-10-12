@@ -350,6 +350,9 @@ export interface IpcContract {
   'app:online': { request: undefined; response: boolean };
   'app:quit': { request: undefined; response: undefined };
   'app:toggleFullscreen': { request: undefined; response: undefined };
+  /** Puts the recent log on the clipboard; resolves with the number of lines copied. */
+  'app:copyLogs': { request: undefined; response: number };
+  'app:openLogsFolder': { request: undefined; response: undefined };
 
   'debug:apiProbe': { request: undefined; response: ProbeFinding[] };
 }
@@ -460,6 +463,8 @@ export interface LauncherApi {
     online: Call<'app:online'>;
     quit: Call<'app:quit'>;
     toggleFullscreen: Call<'app:toggleFullscreen'>;
+    copyLogs: Call<'app:copyLogs'>;
+    openLogsFolder: Call<'app:openLogsFolder'>;
     onOnlineChanged: Subscribe<'app:onlineChanged'>;
   };
   debug: { apiProbe: Call<'debug:apiProbe'> };

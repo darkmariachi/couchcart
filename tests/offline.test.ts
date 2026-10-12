@@ -39,7 +39,13 @@ function createApp(): LauncherApp {
     onLaunchStateChanged: () => {},
     onDownloadsChanged: () => {},
     onOnlineChanged: (online) => onlineEvents.push(online),
-    shell: { choosePath: async () => null, quit: () => {}, toggleFullscreen: () => {} },
+    shell: {
+      choosePath: async () => null,
+      quit: () => {},
+      toggleFullscreen: () => {},
+      copyText: () => {},
+      openFolder: () => {},
+    },
   });
 }
 

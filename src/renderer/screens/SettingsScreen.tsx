@@ -182,6 +182,7 @@ export function SettingsScreen() {
               value={view.launcherFullscreen ? 'On' : 'Off'}
               onPress={() => update.mutate({ launcherFullscreen: !view.launcherFullscreen })}
             />
+            <LogRows />
             <p className={ui.note}>
               Signed in to {view.serverUrl ?? 'no server'} as {view.username ?? 'nobody'}. Sign out
               from the menu.
@@ -311,6 +312,24 @@ function SaveSettings(props: { view: SettingsView; onUpdate: (patch: SettingsPat
         already exists is overwritten.
       </p>
     </Group>
+  );
+}
+
+function LogRows() {
+  const copy = useMutation({ mutationFn: () => unwrap(window.romm.app.copyLogs()) });
+  return (
+    <>
+      <Row
+        label="Copy recent log"
+        value={copy.isSuccess ? `${copy.data} lines copied to the clipboard` : ''}
+        onPress={() => copy.mutate()}
+      />
+      <Row
+        label="Open the logs folder"
+        value=""
+        onPress={() => void window.romm.app.openLogsFolder()}
+      />
+    </>
   );
 }
 
