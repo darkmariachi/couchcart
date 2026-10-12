@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, rename, rm, stat } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { mkdir, open, rename, rm, stat } from 'node:fs/promises';
+import { dirname, extname } from 'node:path';
 import { LauncherError } from '../errors';
 import { NetworkError, RommApiError } from '../romm/errors';
 
@@ -10,7 +10,10 @@ export interface RomDownload {
   urlPath: string;
   /** Size RomM reports for the file; used when the response does not declare one. */
   sizeBytes: number;
-  /** MD5 of the file as stored on the server, when RomM has computed it. */
+  /**
+   * MD5 RomM computed for the file, if any. For an archive it covers the unpacked contents,
+   * not the file itself, so it is only checked for files that are not archives.
+   */
   md5: string | null;
   destination: string;
 }
@@ -63,7 +66,7 @@ export async function downloadRom(
   for (let attempt = 1; ; attempt++) {
     try {
       const totalBytes = await fetchIntoPartFile(source, download, partPath, options);
-      await verify(partPath, totalBytes, download.md5);
+      await verify(partPath, totalBytes, download);
       await rename(partPath, download.destination);
       return;
     } catch (error) {
@@ -139,13 +142,21 @@ function declaredTotal(response: Response, existingBytes: number): number | null
   return length ? existingBytes + Number(length) : null;
 }
 
-async function verify(partPath: string, expectedBytes: number, md5: string | null): Promise<void> {
+async function verify(
+  partPath: string,
+  expectedBytes: number,
+  download: RomDownload,
+): Promise<void> {
   const actualBytes = await sizeOf(partPath);
   let problem: string | null = null;
 
   if (actualBytes !== expectedBytes) {
     problem = `expected ${expectedBytes} bytes but received ${actualBytes ?? 0}`;
-  } else if (md5 && (await md5Of(partPath)) !== md5.toLowerCase()) {
+  } else if (
+    download.md5 &&
+    !(await isArchive(partPath, download.destination)) &&
+    (await md5Of(partPath)) !== download.md5.toLowerCase()
+  ) {
     problem = 'the checksum does not match the one RomM reports';
   }
 
@@ -153,6 +164,39 @@ async function verify(partPath: string, expectedBytes: number, md5: string | nul
     // Never leave a file we know is wrong where a later resume would build on it.
     await rm(partPath, { force: true });
     throw new LauncherError('download_failed', `The download is corrupt: ${problem}.`);
+  }
+}
+
+const ARCHIVE_EXTENSIONS = new Set(['.zip', '.7z', '.rar', '.tar', '.gz', '.tgz', '.bz2', '.xz']);
+
+const ARCHIVE_SIGNATURES: { offset: number; bytes: number[] }[] = [
+  { offset: 0, bytes: [0x50, 0x4b, 0x03, 0x04] }, // zip
+  { offset: 0, bytes: [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c] }, // 7z
+  { offset: 0, bytes: [0x52, 0x61, 0x72, 0x21, 0x1a, 0x07] }, // rar
+  { offset: 0, bytes: [0x1f, 0x8b] }, // gzip
+  { offset: 0, bytes: [0x42, 0x5a, 0x68] }, // bzip2
+  { offset: 0, bytes: [0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00] }, // xz
+  { offset: 257, bytes: [0x75, 0x73, 0x74, 0x61, 0x72] }, // tar
+];
+
+/**
+ * Whether RomM hashes what is inside this file rather than the file. It decides that by
+ * extension or by content, so a zip under another name counts too.
+ */
+async function isArchive(path: string, name: string): Promise<boolean> {
+  if (ARCHIVE_EXTENSIONS.has(extname(name).toLowerCase())) return true;
+
+  const head = Buffer.alloc(262);
+  const file = await open(path, 'r');
+  try {
+    const { bytesRead } = await file.read(head, 0, head.length, 0);
+    return ARCHIVE_SIGNATURES.some(
+      ({ offset, bytes }) =>
+        offset + bytes.length <= bytesRead &&
+        bytes.every((byte, index) => head[offset + index] === byte),
+    );
+  } finally {
+    await file.close();
   }
 }
 

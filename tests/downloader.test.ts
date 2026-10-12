@@ -154,6 +154,25 @@ describe('downloadRom', () => {
     expect(existsSync(partPath())).toBe(false);
   });
 
+  it('accepts an archive whose checksum RomM took from its contents', async () => {
+    const zipped = { ...download, destination: join(dir, 'n64', 'Game (U) [!].zip') };
+
+    await downloadRom({ fetchRaw: rangeServer() }, { ...zipped, md5: 'f'.repeat(32) });
+
+    expect(readFileSync(zipped.destination)).toEqual(CONTENT);
+  });
+
+  it('recognises an archive by its content when the name does not say so', async () => {
+    const zip = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), CONTENT]);
+
+    await downloadRom(
+      { fetchRaw: rangeServer(zip) },
+      { ...download, sizeBytes: zip.length, md5: 'f'.repeat(32) },
+    );
+
+    expect(readFileSync(download.destination)).toEqual(zip);
+  });
+
   it('rejects a short file', async () => {
     const fetchRaw = async () =>
       new Response(CONTENT.subarray(0, 500), {
