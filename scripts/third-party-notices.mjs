@@ -16,6 +16,23 @@ const BUNDLED = [
   'openapi-typescript-helpers',
   '@mdi/js',
   'electron',
+  // The self-updater and what it is built on.
+  'electron-updater',
+  'builder-util-runtime',
+  'fs-extra',
+  'graceful-fs',
+  'jsonfile',
+  'universalify',
+  'js-yaml',
+  'argparse',
+  'lazy-val',
+  'lodash.escaperegexp',
+  'lodash.isequal',
+  'semver',
+  'tiny-typed-emitter',
+  'debug',
+  'ms',
+  'sax',
   // Ships the 7-Zip program (7za) that unpacks downloads; see the note in the header.
   '7zip-bin',
 ];

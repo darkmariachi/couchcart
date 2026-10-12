@@ -8,6 +8,7 @@ import type {
   GamepadCombo,
   SettingsPatch,
   SettingsView,
+  UpdateState,
 } from '../../shared/ipc';
 import { errorMessage, unwrap } from '../api';
 import { AddToSteam } from '../components/AddToSteam';
@@ -17,7 +18,7 @@ import { OnScreenKeyboard } from '../components/OnScreenKeyboard';
 import { Screen } from '../components/Screen';
 import ui from '../components/ui.module.css';
 import { formatSize, shortCoreName } from '../format';
-import { useControllers, useSettings } from '../hooks';
+import { useControllers, useSettings, useUpdateState } from '../hooks';
 import { useControls } from '../input/controls';
 import { focusByKey } from '../input/focus';
 import { useUi } from '../store/ui';
@@ -245,6 +246,8 @@ export function SettingsScreen() {
               from the menu.
             </p>
           </Group>
+
+          <UpdateSettings view={view} onUpdate={update.mutate} />
         </>
       )}
     </Screen>
@@ -369,6 +372,70 @@ function SaveSettings(props: { view: SettingsView; onUpdate: (patch: SettingsPat
       <p className={ui.note}>
         Importing copies saves RetroArch made on its own for games in your library. Nothing that
         already exists is overwritten.
+      </p>
+    </Group>
+  );
+}
+
+function updateStatusText(state: UpdateState): string {
+  const version = state.latestVersion ?? '';
+  switch (state.status) {
+    case 'idle':
+      return `Version ${state.currentVersion}`;
+    case 'checking':
+      return 'Checking…';
+    case 'current':
+      return `Version ${state.currentVersion} is the newest`;
+    case 'available':
+      return `Version ${version} is available`;
+    case 'downloading':
+      return `Downloading version ${version}… ${state.percent ?? 0}%`;
+    case 'ready':
+      return `Version ${version} is ready to install`;
+    case 'failed':
+      return 'Could not check';
+  }
+}
+
+function UpdateSettings(props: { view: SettingsView; onUpdate: (patch: SettingsPatch) => void }) {
+  const state = useUpdateState();
+  if (!state) return null;
+
+  const busy = state.status === 'checking' || state.status === 'downloading';
+  const { checkForUpdates } = props.view;
+  return (
+    <Group title="Updates">
+      <Row
+        label="Check for updates"
+        value={updateStatusText(state)}
+        disabled={busy || state.status === 'ready'}
+        onPress={() => void window.romm.updates.check()}
+      />
+      {state.status === 'ready' && (
+        <Row
+          label="Restart and install"
+          value={`Version ${state.latestVersion}`}
+          onPress={() => void window.romm.updates.install()}
+        />
+      )}
+      {state.status === 'available' && (
+        <Row
+          label="Open the download page"
+          value="In your web browser"
+          onPress={() => void window.romm.updates.install()}
+        />
+      )}
+      <Row
+        label="Check automatically"
+        value={checkForUpdates ? 'On' : 'Off'}
+        onPress={() => props.onUpdate({ checkForUpdates: !checkForUpdates })}
+      />
+      {state.status === 'failed' && <p className={ui.error}>{state.error}</p>}
+      <p className={ui.note}>
+        {state.selfUpdating
+          ? 'A new version is downloaded in the background and installed the next time the launcher closes.'
+          : 'This copy of the launcher cannot update itself; a new version has to be downloaded by hand.'}{' '}
+        Checking asks GitHub, where the launcher is published, for the newest version.
       </p>
     </Group>
   );

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { IpcChannel, IpcRequest, IpcResponse, IpcResult } from '../../shared/ipc';
 import type { LauncherApp } from '../launcherApp';
 import { log } from '../logging/logger';
+import type { UpdateService } from '../updates/updateService';
 import { toIpcError } from './errors';
 
 const noRequest = z.undefined();
@@ -89,6 +90,7 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
     deviceName: z.string().trim().min(1).max(100).optional(),
     saveBackupCount: z.number().int().min(1).max(1000).optional(),
     launcherFullscreen: z.boolean().optional(),
+    checkForUpdates: z.boolean().optional(),
     retroarchFullscreen: z.boolean().optional(),
     hideTouchOverlay: z.boolean().optional(),
     retroarchExtraArgs: z.string().max(1000).optional(),
@@ -110,6 +112,10 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
   'setup:importSaves': noRequest,
   'setup:complete': noRequest,
 
+  'updates:state': noRequest,
+  'updates:check': noRequest,
+  'updates:install': noRequest,
+
   'app:online': noRequest,
   'app:quit': noRequest,
   'app:toggleFullscreen': noRequest,
@@ -124,6 +130,7 @@ type Handlers = {
 
 export function registerIpcHandlers(
   app: LauncherApp,
+  updates: UpdateService,
   isTrustedSender: (event: IpcMainInvokeEvent) => boolean,
 ): void {
   const handlers: Handlers = {
@@ -180,6 +187,10 @@ export function registerIpcHandlers(
     'setup:importPreview': () => app.getImportPreview(),
     'setup:importSaves': () => app.importSaves(),
     'setup:complete': () => app.completeSetup(),
+
+    'updates:state': () => updates.getState(),
+    'updates:check': () => updates.check(),
+    'updates:install': () => updates.install(),
 
     'app:online': () => app.isOnline(),
     'app:quit': () => app.quit(),

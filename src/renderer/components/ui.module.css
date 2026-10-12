@@ -175,6 +175,14 @@
   transform: none;
 }
 
+/* Marks Settings while a newer version of the app is waiting there. */
+.navDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
 .navActive,
 .navActive:hover:not(:disabled) {
   background: #fff;

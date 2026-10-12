@@ -49,6 +49,8 @@ jobs:
             dist/*.exe
             dist/*.AppImage
             dist/*.tar.gz
+            dist/*.blockmap
+            dist/latest*.yml
 
   release:
     name: Draft release

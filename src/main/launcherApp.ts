@@ -853,6 +853,7 @@ export class LauncherApp {
       deviceName: settings.deviceName,
       saveBackupCount: settings.saveBackupCount,
       launcherFullscreen: settings.launcherFullscreen,
+      checkForUpdates: settings.checkForUpdates,
       retroarch: {
         configuredPath: settings.retroarch.executablePath,
         detectedPath: install?.executablePath ?? null,
@@ -897,6 +898,7 @@ export class LauncherApp {
       deviceName: patch.deviceName ?? current.deviceName,
       saveBackupCount: patch.saveBackupCount ?? current.saveBackupCount,
       launcherFullscreen: patch.launcherFullscreen ?? current.launcherFullscreen,
+      checkForUpdates: patch.checkForUpdates ?? current.checkForUpdates,
       retroarch,
       cache: {
         keep: patch.cacheKeep ?? current.cache.keep,
@@ -994,6 +996,10 @@ export class LauncherApp {
 
   get launcherFullscreen(): boolean {
     return this.settings.get().launcherFullscreen;
+  }
+
+  get checksForUpdates(): boolean {
+    return this.settings.get().checkForUpdates;
   }
 
   // ---------- Internals ----------

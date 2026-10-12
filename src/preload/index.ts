@@ -90,6 +90,12 @@ const api: LauncherApi = {
     importSaves: call('setup:importSaves'),
     complete: call('setup:complete'),
   },
+  updates: {
+    state: call('updates:state'),
+    check: call('updates:check'),
+    install: call('updates:install'),
+    onChanged: subscribe('updates:changed'),
+  },
   app: {
     online: call('app:online'),
     quit: call('app:quit'),

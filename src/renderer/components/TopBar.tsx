@@ -8,6 +8,7 @@ import {
   mdiMagnify,
 } from '@mdi/js';
 import { APP_NAME } from '../../shared/app';
+import { useUpdateState } from '../hooks';
 import { useSection, useUi, type Route } from '../store/ui';
 import { Focusable } from './Focusable';
 import { Icon } from './Icon';
@@ -46,6 +47,8 @@ interface TopBarProps {
 export function TopBar({ username, showNavigation }: TopBarProps) {
   const goTo = useUi((state) => state.goTo);
   const section = useSection();
+  const updateStatus = useUpdateState()?.status;
+  const updateWaiting = updateStatus === 'ready' || updateStatus === 'available';
 
   return (
     <header className={styles.topBar}>
@@ -73,6 +76,9 @@ export function TopBar({ username, showNavigation }: TopBarProps) {
             >
               <Icon path={entry.icon} />
               {entry.label}
+              {entry.route === 'settings' && updateWaiting && (
+                <span className={styles.navDot} role="img" aria-label="Update available" />
+              )}
             </Focusable>
           ))}
         </nav>

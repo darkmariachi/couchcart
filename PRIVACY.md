@@ -13,6 +13,11 @@ not contact its authors or any service they run.
 - **libretro's download server (`buildbot.libretro.com`), only when you ask the launcher to set
   up RetroArch or download a core.** It sees what any download shows a server: your IP address
   and which files you fetched. Nothing about you or your library is sent.
+- **GitHub (`github.com` and `api.github.com`), to look for a newer version of Couchcart** and,
+  for the Windows installer and the AppImage, to download it. This happens shortly after the app
+  starts and a few times a day while it is open. GitHub sees your IP address and that a copy of
+  Couchcart asked; nothing about you or your library is sent. Turn it off under Settings,
+  Updates, "Check automatically"; after that it only happens when you choose "Check for updates".
 
 ## What it stores on your computer
 

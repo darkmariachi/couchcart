@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { DownloadJob, GridSource, LaunchState } from '../shared/ipc';
+import type { DownloadJob, GridSource, LaunchState, UpdateState } from '../shared/ipc';
 import { unwrap } from './api';
 
 export function useAuthStatus() {
@@ -131,6 +131,20 @@ export function useOnline(): boolean {
   }, []);
 
   return online;
+}
+
+/** What is known about newer versions of the app; null until the main process answers. */
+export function useUpdateState(): UpdateState | null {
+  const [state, setState] = useState<UpdateState | null>(null);
+
+  useEffect(() => {
+    void window.romm.updates.state().then((result) => {
+      if (result.ok) setState(result.value);
+    });
+    return window.romm.updates.onChanged(setState);
+  }, []);
+
+  return state;
 }
 
 /**

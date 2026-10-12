@@ -20,6 +20,9 @@ import { LauncherApp } from './launcherApp';
 import { COVER_SCHEME, createCoverHandler } from './library/coverProtocol';
 import { enableFileLogging, log } from './logging/logger';
 import type { Encryptor } from './romm/credentials';
+import { createSelfUpdater } from './updates/electronUpdater';
+import { RELEASES_PAGE, fetchLatestReleaseVersion } from './updates/github';
+import { UpdateService } from './updates/updateService';
 
 // Set by electron-vite while developing; absent in a packaged build.
 const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
@@ -92,6 +95,16 @@ function steamShortcut() {
     },
     artworkDir,
   };
+}
+
+/**
+ * Only the installed Windows build and the AppImage can replace themselves. The portable
+ * build and the tar.gz have no installer to run, and a development run is not a release.
+ */
+function canSelfUpdate(): boolean {
+  if (!app.isPackaged) return false;
+  if (process.platform === 'win32') return !process.env['PORTABLE_EXECUTABLE_FILE'];
+  return process.platform === 'linux' && Boolean(process.env['APPIMAGE']);
 }
 
 function isTrustedSender(event: IpcMainInvokeEvent): boolean {
@@ -203,9 +216,22 @@ if (!app.requestSingleInstanceLock()) {
       COVER_SCHEME,
       createCoverHandler(join(app.getPath('userData'), 'covers'), () => launcher.coverSource),
     );
-    registerIpcHandlers(launcher, isTrustedSender);
+    const updates = new UpdateService({
+      currentVersion: app.getVersion(),
+      selfUpdater: canSelfUpdate() ? createSelfUpdater() : null,
+      fetchLatestVersion: () => fetchLatestReleaseVersion(),
+      isAutomatic: () => launcher.checksForUpdates,
+      openDownloadPage: () => void shell.openExternal(RELEASES_PAGE),
+      onChanged: (state) => send('updates:changed', state),
+    });
+
+    registerIpcHandlers(launcher, updates, isTrustedSender);
     launcher.start();
-    app.on('before-quit', () => launcher.stop());
+    updates.start();
+    app.on('before-quit', () => {
+      launcher.stop();
+      updates.stop();
+    });
     mainWindow = createWindow(shouldStartFullscreen(launcher.launcherFullscreen));
     log.info(`${APP_NAME} ${app.getVersion()} started`);
   });

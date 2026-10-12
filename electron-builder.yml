@@ -15,6 +15,13 @@ files:
   - THIRD_PARTY_NOTICES.md
 asar: true
 
+# Where the installed app looks for newer versions of itself. Nothing is uploaded from
+# here: the build workflow attaches the files to a release.
+publish:
+  provider: github
+  owner: darkmariachi
+  repo: couchcart
+
 # Artwork for adding the launcher to Steam, as loose files the user can browse to.
 extraResources:
   - from: assets/steam

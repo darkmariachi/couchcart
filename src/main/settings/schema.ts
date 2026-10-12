@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
-export const CURRENT_SETTINGS_VERSION = 7;
+export const CURRENT_SETTINGS_VERSION = 8;
 
 const retroarchSchema = z.object({
   /** Null means "auto-detect"; set it to pin a specific install. */
@@ -43,6 +43,8 @@ export const settingsSchema = z.object({
   setupComplete: z.boolean(),
   /** Whether the launcher window itself starts fullscreen. */
   launcherFullscreen: z.boolean(),
+  /** Whether the app looks for a newer version of itself without being asked. */
+  checkForUpdates: z.boolean(),
   /** Null means `<app data>/roms`. */
   cacheDir: z.string().nullable(),
   /** Core names without extension, e.g. `mupen64plus_next_libretro`. */
@@ -80,6 +82,8 @@ const V5_ADDITIONS = {
   cache: { keep: 'limit', limitGb: 20 },
 } satisfies Partial<Settings>;
 
+const V8_ADDITIONS = { checkForUpdates: true } satisfies Partial<Settings>;
+
 export function defaultSettings(deviceName: string): Settings {
   return {
     version: CURRENT_SETTINGS_VERSION,
@@ -91,6 +95,7 @@ export function defaultSettings(deviceName: string): Settings {
     ...V3_ADDITIONS,
     ...V4_ADDITIONS,
     ...structuredClone(V5_ADDITIONS),
+    ...V8_ADDITIONS,
   };
 }
 
@@ -115,6 +120,8 @@ const MIGRATIONS: Record<number, (old: RawSettings) => RawSettings> = {
   }),
   // v7 added the install id used for pairing.
   6: (v6) => ({ ...v6, installId: randomUUID(), version: 7 }),
+  // v8 added looking for updates to the app itself.
+  7: (v7) => ({ ...v7, ...V8_ADDITIONS, version: 8 }),
 };
 
 /**

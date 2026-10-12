@@ -196,6 +196,8 @@ export interface SettingsView {
   deviceName: string;
   saveBackupCount: number;
   launcherFullscreen: boolean;
+  /** Whether the app looks for a newer version of itself on its own. */
+  checkForUpdates: boolean;
   retroarch: {
     /** Null means auto-detect. */
     configuredPath: string | null;
@@ -227,6 +229,7 @@ export interface SettingsPatch {
   deviceName?: string;
   saveBackupCount?: number;
   launcherFullscreen?: boolean;
+  checkForUpdates?: boolean;
   retroarchFullscreen?: boolean;
   hideTouchOverlay?: boolean;
   retroarchExtraArgs?: string;
@@ -245,6 +248,26 @@ export interface SettingsPatch {
 export type ExternalLink = 'retroarch-steam' | 'retroarch-website';
 
 export type FolderSetting = 'cache' | 'retroarch' | 'cores';
+
+/** What is known about newer versions of the app itself. */
+export interface UpdateState {
+  currentVersion: string;
+  /**
+   * Whether this copy can replace itself. The Windows installer and the AppImage can; the
+   * portable build and the tar.gz only learn that a newer version exists.
+   */
+  selfUpdating: boolean;
+  /**
+   * `available`: a newer version exists and has to be fetched by hand.
+   * `ready`: it is downloaded and goes in when the app closes or the user asks.
+   */
+  status: 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'ready' | 'failed';
+  /** The newest published version, once a check has succeeded. */
+  latestVersion: string | null;
+  /** Download progress, 0 to 100, while `downloading`. */
+  percent: number | null;
+  error: string | null;
+}
 
 export interface ControllerInfo {
   /** RetroArch's identity for the device: `vid:pid name`. */
@@ -460,6 +483,12 @@ export interface IpcContract {
   /** Adds the launcher to Steam with its artwork. Steam must be closed, or `restartSteam` set. */
   'steam:add': { request: { restartSteam: boolean }; response: SteamShortcutStatus };
 
+  'updates:state': { request: undefined; response: UpdateState };
+  /** Looks for a newer version now, and downloads it when this copy can update itself. */
+  'updates:check': { request: undefined; response: UpdateState };
+  /** Restarts into the downloaded version, or opens the download page when there is none. */
+  'updates:install': { request: undefined; response: undefined };
+
   'app:online': { request: undefined; response: boolean };
   'app:quit': { request: undefined; response: undefined };
   'app:toggleFullscreen': { request: undefined; response: undefined };
@@ -477,6 +506,7 @@ export interface IpcEvents {
   'retroarch:setupProgress': SetupProgress;
   /** False while the RomM server cannot be reached. */
   'app:onlineChanged': boolean;
+  'updates:changed': UpdateState;
 }
 
 export type IpcChannel = keyof IpcContract;
@@ -584,6 +614,12 @@ export interface LauncherApi {
     importPreview: Call<'setup:importPreview'>;
     importSaves: Call<'setup:importSaves'>;
     complete: Call<'setup:complete'>;
+  };
+  updates: {
+    state: Call<'updates:state'>;
+    check: Call<'updates:check'>;
+    install: Call<'updates:install'>;
+    onChanged: Subscribe<'updates:changed'>;
   };
   app: {
     online: Call<'app:online'>;
