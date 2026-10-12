@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { readdir, stat, statfs } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type {
+  AccountOverview,
   AuthStatus,
   CollectionSummary,
   GridSource,
@@ -222,6 +223,59 @@ export class LauncherApp {
     this.connection?.auth.logout();
     this.settings.update({ username: null, deviceId: null });
     return this.status();
+  }
+
+  /**
+   * Who is signed in, what the server holds, and which devices sync with it. Each part is
+   * fetched independently, so the screen still shows the rest when one is unavailable.
+   */
+  async getAccountOverview(): Promise<AccountOverview> {
+    const settings = this.settings.get();
+    const client = this.connection?.auth.isLoggedIn ? this.connection.client : null;
+    const [user, stats, devices, server] = await Promise.all([
+      client?.getCurrentUser().catch(() => null) ?? null,
+      client?.getStats().catch(() => null) ?? null,
+      client?.listDevices().catch(() => []) ?? [],
+      settings.serverUrl ? probeServer(settings.serverUrl).catch(() => null) : null,
+    ]);
+
+    return {
+      username: user?.username ?? settings.username,
+      role: user?.role ?? null,
+      serverUrl: settings.serverUrl,
+      serverVersion: server?.version ?? null,
+      launcherVersion: this.options.appVersion,
+      deviceName: settings.deviceName,
+      stats: stats && {
+        games: stats.ROMS ?? 0,
+        platforms: stats.PLATFORMS ?? 0,
+        saves: stats.SAVES ?? 0,
+        states: stats.STATES ?? 0,
+        screenshots: stats.SCREENSHOTS ?? 0,
+        totalBytes: stats.TOTAL_FILESIZE_BYTES ?? 0,
+      },
+      devices: devices
+        .map((device) => ({
+          id: device.id,
+          name: device.name ?? device.hostname ?? 'Unnamed device',
+          client: device.client,
+          platform: device.platform,
+          lastSeen: device.last_seen,
+          // After signing in again the id is not known until the next save sync, so the
+          // launcher's own registration is also recognised by host name.
+          isThisDevice:
+            device.id === settings.deviceId ||
+            (settings.deviceId === null &&
+              device.client === 'romm-launcher' &&
+              device.hostname === this.options.hostname),
+        }))
+        .sort(
+          (a, b) =>
+            Number(b.isThisDevice) - Number(a.isThisDevice) ||
+            Date.parse(b.lastSeen ?? '') - Date.parse(a.lastSeen ?? '') ||
+            a.name.localeCompare(b.name),
+        ),
+    };
   }
 
   isOnline(): boolean {

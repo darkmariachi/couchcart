@@ -25,6 +25,7 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
     password: z.string().min(1).max(1024),
   }),
   'auth:logout': noRequest,
+  'account:overview': noRequest,
 
   'library:platforms': noRequest,
   'library:roms': z.object({
@@ -128,6 +129,7 @@ export function registerIpcHandlers(
     'auth:status': () => app.status(),
     'auth:login': (request) => app.login(request),
     'auth:logout': () => app.logout(),
+    'account:overview': () => app.getAccountOverview(),
 
     'library:platforms': () => app.listPlatforms(),
     'library:roms': (query) => app.listRoms(query),

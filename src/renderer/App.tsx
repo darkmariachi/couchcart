@@ -5,7 +5,7 @@ import { Ambient } from './components/Ambient';
 import { MenuDialog, type MenuItem } from './components/Dialog';
 import { Footer } from './components/Footer';
 import { LaunchOverlay } from './components/LaunchOverlay';
-import { SECTIONS, TopBar } from './components/TopBar';
+import { SECTION_ORDER, TopBar } from './components/TopBar';
 import ui from './components/ui.module.css';
 import {
   useAuthStatus,
@@ -16,6 +16,7 @@ import {
 } from './hooks';
 import { InputProvider } from './input/InputProvider';
 import { useControls } from './input/controls';
+import { AccountScreen } from './screens/AccountScreen';
 import { CollectionsScreen, PlatformsScreen } from './screens/BrowseScreens';
 import { DebugScreen } from './screens/Debug/DebugScreen';
 import { DownloadsScreen } from './screens/DownloadsScreen';
@@ -25,7 +26,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { SetupWizard } from './screens/SetupWizard';
-import { useCurrentEntry, useSection, useUi } from './store/ui';
+import { useCurrentEntry, useSection, useUi, type Route } from './store/ui';
 
 export function App() {
   return (
@@ -48,11 +49,12 @@ function Shell() {
   const section = useSection();
   const goTo = useUi((state) => state.goTo);
   const stepSection = (step: number) => {
-    const order = SECTIONS.map((entry) => entry.route);
+    const order = SECTION_ORDER;
     const index = order.findIndex((route) => route === section);
     // From a screen outside the bar (the debug tools), either button returns to Home.
     const target = index === -1 ? 'home' : order[(index + step + order.length) % order.length];
-    if (target) goTo({ name: target });
+    // Every stop on the bar is a route that needs no parameters.
+    if (target) goTo({ name: target } as Route);
   };
   const libraryReady = Boolean(setup.data?.complete && auth.data?.loggedIn);
   useControls(
@@ -134,6 +136,8 @@ function CurrentScreen() {
       return <SettingsScreen />;
     case 'downloads':
       return <DownloadsScreen />;
+    case 'account':
+      return <AccountScreen />;
     case 'debug':
       return <DebugRoute />;
   }

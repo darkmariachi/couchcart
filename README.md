@@ -64,7 +64,8 @@ The setup wizard asks for:
 Text is entered with an on-screen keyboard; a physical keyboard types straight into it.
 
 The bar at the top switches between Home, Platforms, Collections, Search, Downloads and
-Settings. LB and RB step along it from anywhere; pressing up from the top row of a screen
+Settings, and your name at the right opens Account. LB and RB step along all of them from
+anywhere; pressing up from the top row of a screen
 also reaches it.
 
 The window has no title bar. Drag it by the top bar when windowed; close it with Start →
@@ -81,6 +82,10 @@ Exit launcher.
 - **Search** looks through the whole library. Inside a platform or collection, X filters just
   that list. Either way, matching games are suggested as you type: move up from the keys to
   pick one.
+
+- **Account** (your name, top right) shows the server and its version, library totals and the
+  devices that sync with RomM, and has a controller test, sign out and exit. The controller
+  test shows live what each controller sends; hold B for a second to close it.
 
 Artwork is not bundled with the launcher. Covers, screenshots, platform icons and the RomM
 logo are loaded from your own RomM server and kept on disk, so they also show offline.

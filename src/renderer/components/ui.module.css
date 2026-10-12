@@ -186,8 +186,12 @@
   color: #111117;
 }
 
-.userPill {
+.userSlot {
   justify-self: end;
+  -webkit-app-region: no-drag;
+}
+
+.userPill {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -277,6 +281,13 @@
   font-size: 0.85rem;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* A pill that is lit up, e.g. a controller button being held. */
+.pillActive {
+  border-color: var(--romm-primary-light);
+  background: var(--romm-primary);
+  color: #fff;
 }
 
 /* ---------- Footer: status and button hints ---------- */
@@ -667,5 +678,18 @@
 }
 
 .suggestion:focus {
+  transform: none;
+}
+
+/* The account pill is a tab too: when its section is open it turns white like the others. */
+.userPill.navActive,
+.userPill.navActive:hover:not(:disabled),
+.userPill.navActive:focus {
+  border-color: #fff;
+  background: #fff;
+  color: #111117;
+}
+
+.userPill:focus {
   transform: none;
 }

@@ -30,6 +30,12 @@ export const SECTIONS = [
   { route: 'settings', label: 'Settings', icon: mdiCog },
 ] as const satisfies readonly Section[];
 
+/**
+ * Every stop LB/RB make along the top bar: the sections, then the account pill at the
+ * right-hand end.
+ */
+export const SECTION_ORDER: Route['name'][] = [...SECTIONS.map((entry) => entry.route), 'account'];
+
 interface TopBarProps {
   username: string | null;
   /** Hidden during setup, when there is nowhere to navigate to yet. */
@@ -83,10 +89,23 @@ export function TopBar({ username, showNavigation }: TopBarProps) {
         <span />
       )}
 
-      {username ? (
-        <div className={styles.userPill}>
-          <Icon path={mdiAccountCircle} />
-          {username}
+      {username && showNavigation ? (
+        <div className={styles.userSlot} data-focus-chrome="">
+          <Focusable
+            className={`${styles.userPill} ${section === 'account' ? styles.navActive : ''}`}
+            focusKey="nav-account"
+            onPress={() => goTo({ name: 'account' })}
+          >
+            <Icon path={mdiAccountCircle} />
+            {username}
+          </Focusable>
+        </div>
+      ) : username ? (
+        <div className={styles.userSlot}>
+          <div className={styles.userPill}>
+            <Icon path={mdiAccountCircle} />
+            {username}
+          </div>
         </div>
       ) : (
         <span />

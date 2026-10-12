@@ -11,6 +11,7 @@ export type Save = Schemas['SaveSchema'];
 export type State = Schemas['StateSchema'];
 export type User = Schemas['UserSchema'];
 export type Collection = Schemas['CollectionSchema'];
+export type Device = Schemas['DeviceSchema'];
 export type SmartCollection = Schemas['SmartCollectionSchema'];
 export type VirtualCollection = Schemas['VirtualCollectionSchema'];
 
@@ -199,9 +200,13 @@ export class RommClient {
     return body as Collection;
   }
 
-  async listDevices(): Promise<{ id: string; name: string | null }[]> {
-    const devices = unwrap(await this.api.GET('/api/devices'));
-    return devices.map((device) => ({ id: device.id, name: device.name }));
+  async listDevices(): Promise<Device[]> {
+    return unwrap(await this.api.GET('/api/devices'));
+  }
+
+  /** Library totals. This endpoint needs no particular permission. */
+  async getStats(): Promise<Schemas['StatsReturn']> {
+    return unwrap(await this.api.GET('/api/stats'));
   }
 
   /** Records "last played: now" for the current user. */

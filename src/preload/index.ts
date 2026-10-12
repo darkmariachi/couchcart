@@ -31,6 +31,7 @@ const api: LauncherApi = {
     login: call('auth:login'),
     logout: call('auth:logout'),
   },
+  account: { overview: call('account:overview') },
   library: {
     platforms: call('library:platforms'),
     roms: call('library:roms'),

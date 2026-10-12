@@ -26,6 +26,35 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface DeviceInfo {
+  id: string;
+  name: string;
+  /** The app that registered it, e.g. this launcher or RomM's web player. */
+  client: string | null;
+  platform: string | null;
+  lastSeen: string | null;
+  isThisDevice: boolean;
+}
+
+/** What the Account screen shows. Parts the server could not provide are null or empty. */
+export interface AccountOverview {
+  username: string | null;
+  role: string | null;
+  serverUrl: string | null;
+  serverVersion: string | null;
+  launcherVersion: string;
+  deviceName: string;
+  stats: {
+    games: number;
+    platforms: number;
+    saves: number;
+    states: number;
+    screenshots: number;
+    totalBytes: number;
+  } | null;
+  devices: DeviceInfo[];
+}
+
 // ---------- Library ----------
 
 export interface PlatformSummary {
@@ -329,6 +358,7 @@ export interface IpcContract {
   'auth:status': { request: undefined; response: AuthStatus };
   'auth:login': { request: LoginRequest; response: AuthStatus };
   'auth:logout': { request: undefined; response: AuthStatus };
+  'account:overview': { request: undefined; response: AccountOverview };
 
   'library:platforms': { request: undefined; response: PlatformSummary[] };
   'library:roms': { request: RomQuery; response: RomPage };
@@ -447,6 +477,7 @@ export interface LauncherApi {
     login: Call<'auth:login'>;
     logout: Call<'auth:logout'>;
   };
+  account: { overview: Call<'account:overview'> };
   library: {
     platforms: Call<'library:platforms'>;
     roms: Call<'library:roms'>;

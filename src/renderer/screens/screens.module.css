@@ -288,3 +288,20 @@
   padding: 0;
   list-style: none;
 }
+
+/* ---------- Account ---------- */
+
+.panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  gap: 1rem;
+  max-width: 80rem;
+}
+
+.line {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.3rem 0;
+  font-size: 1.05rem;
+}
