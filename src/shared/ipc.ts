@@ -1,5 +1,6 @@
 // The single source of truth for everything that crosses the main <-> renderer boundary.
 import type { components } from '../main/romm/schema';
+import type { SyncAction } from '../main/saves/syncDecision';
 
 type Schemas = components['schemas'];
 export type RommSave = Schemas['SaveSchema'];
@@ -77,12 +78,46 @@ export interface RetroArchStatus {
   installedCores: string[];
 }
 
+export type SyncKind = 'save' | 'state';
+
+export interface SyncItemResult {
+  kind: SyncKind;
+  fileName: string;
+  action: SyncAction;
+  /** `conflict` means both versions were left untouched and the user has to choose. */
+  outcome: 'done' | 'conflict' | 'failed';
+  detail: string;
+}
+
+export interface SyncReport {
+  romId: number;
+  /** `offline`: the server could not be reached, nothing was changed. */
+  status: 'synced' | 'conflict' | 'offline' | 'error';
+  items: SyncItemResult[];
+  at: string;
+}
+
+export interface ConflictResolution {
+  romId: number;
+  kind: SyncKind;
+  fileName: string;
+  /** Which version to keep. The other one goes to the backups folder. */
+  keep: 'local' | 'server';
+}
+
 export type LaunchState =
   | { phase: 'idle' }
   | { phase: 'downloading'; romId: number; receivedBytes: number; totalBytes: number }
   | { phase: 'starting'; romId: number }
+  | { phase: 'syncing'; romId: number; stage: 'before-launch' | 'after-exit' }
   | { phase: 'running'; romId: number; core: string; startedAt: string }
-  | { phase: 'exited'; romId: number; exitCode: number | null; playedSeconds: number }
+  | {
+      phase: 'exited';
+      romId: number;
+      exitCode: number | null;
+      playedSeconds: number;
+      sync: SyncReport;
+    }
   | { phase: 'failed'; romId: number; error: IpcErrorInfo };
 
 export interface IpcContract {
@@ -98,6 +133,9 @@ export interface IpcContract {
   /** Resolves once RetroArch is running; later changes arrive as `game:stateChanged`. */
   'game:play': { request: number; response: undefined };
   'game:state': { request: undefined; response: LaunchState };
+  'saves:sync': { request: number; response: SyncReport };
+  'saves:lastReport': { request: number; response: SyncReport | null };
+  'saves:resolveConflict': { request: ConflictResolution; response: SyncReport };
 }
 
 /** Pushed from main to renderer, without a request. */
@@ -153,6 +191,11 @@ export interface LauncherApi {
   };
   debug: { apiProbe: Call<'debug:apiProbe'> };
   retroarch: { status: Call<'retroarch:status'> };
+  saves: {
+    sync: Call<'saves:sync'>;
+    lastReport: Call<'saves:lastReport'>;
+    resolveConflict: Call<'saves:resolveConflict'>;
+  };
   game: {
     play: Call<'game:play'>;
     state: Call<'game:state'>;

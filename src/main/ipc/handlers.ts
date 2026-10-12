@@ -6,6 +6,7 @@ import { log } from '../logging/logger';
 import { toIpcError } from './errors';
 
 const noRequest = z.undefined();
+const romId = z.number().int().positive();
 const serverUrl = z.string().trim().min(1).max(2048);
 
 // The renderer is treated as untrusted input: every request is validated before use.
@@ -30,6 +31,14 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
   'retroarch:status': noRequest,
   'game:play': z.number().int().positive(),
   'game:state': noRequest,
+  'saves:sync': romId,
+  'saves:lastReport': romId,
+  'saves:resolveConflict': z.object({
+    romId,
+    kind: z.enum(['save', 'state']),
+    fileName: z.string().min(1).max(255),
+    keep: z.enum(['local', 'server']),
+  }),
 };
 
 type Handlers = {
@@ -52,6 +61,9 @@ export function registerIpcHandlers(
     'retroarch:status': () => app.getRetroArchStatus(),
     'game:play': (romId) => app.play(romId),
     'game:state': () => app.getLaunchState(),
+    'saves:sync': (id) => app.syncSaves(id),
+    'saves:lastReport': (id) => app.getLastSyncReport(id),
+    'saves:resolveConflict': (resolution) => app.resolveConflict(resolution),
   };
 
   for (const channel of Object.keys(handlers) as IpcChannel[]) {

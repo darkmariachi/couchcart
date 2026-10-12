@@ -1,7 +1,7 @@
 import type { spawn as nodeSpawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { LaunchState, RetroArchStatus } from '../../shared/ipc';
+import type { LaunchState, RetroArchStatus, SyncReport } from '../../shared/ipc';
 import { downloadRom, isDownloaded, type RomContentSource } from '../downloads/romDownloader';
 import { LauncherError } from '../errors';
 import { writeFileAtomicSync } from '../fs/atomic';
@@ -38,6 +38,8 @@ export interface LaunchServiceDeps {
   listInstalledCores: (coresDir: string) => Set<string>;
   spawn: typeof nodeSpawn;
   onStateChanged: (state: LaunchState) => void;
+  /** Brings saves in line with the server. Must not throw; problems go in the report. */
+  syncSaves: (rom: LaunchableRom, emulator: string) => Promise<SyncReport>;
   defaultCores?: CoreMap;
   now?: () => number;
 }
@@ -115,6 +117,11 @@ export class LaunchService {
         this.setState({ phase: 'starting', romId });
       }
 
+      // Pull newer saves from other PCs before the game reads them.
+      this.setState({ phase: 'syncing', romId, stage: 'before-launch' });
+      await this.deps.syncSaves(rom, emulatorName(core));
+      this.setState({ phase: 'starting', romId });
+
       await this.startRetroArch(rom, install, core, romPath);
     } catch (error) {
       log.warn(`Launching ROM ${romId} failed`, error);
@@ -124,7 +131,7 @@ export class LaunchService {
   }
 
   private get isBusy(): boolean {
-    return ['downloading', 'starting', 'running'].includes(this.state.phase);
+    return ['downloading', 'starting', 'syncing', 'running'].includes(this.state.phase);
   }
 
   private locate(): Promise<RetroArchInstall | null> {
@@ -222,7 +229,11 @@ export class LaunchService {
     child.once('exit', (exitCode) => {
       const playedSeconds = Math.round((now() - startedAt) / 1000);
       log.info(`RetroArch exited (code ${exitCode}) after ${playedSeconds}s`);
-      this.setState({ phase: 'exited', romId: rom.id, exitCode, playedSeconds });
+      // RetroArch has closed its files, so whatever it wrote can go to the server now.
+      this.setState({ phase: 'syncing', romId: rom.id, stage: 'after-exit' });
+      void this.deps.syncSaves(rom, emulatorName(core)).then((sync) => {
+        this.setState({ phase: 'exited', romId: rom.id, exitCode, playedSeconds, sync });
+      });
     });
   }
 
@@ -230,4 +241,9 @@ export class LaunchService {
     this.state = state;
     this.deps.onStateChanged(state);
   }
+}
+
+/** RomM labels saves with the core name without the libretro suffix. */
+export function emulatorName(core: string): string {
+  return core.replace(/_libretro$/, '');
 }

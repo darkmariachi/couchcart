@@ -170,6 +170,12 @@ describe('LaunchService', () => {
   let spawn: Mock<(executable: string, args: string[], options: { cwd: string }) => EventEmitter>;
   let fetchRaw: Mock<RomSource['fetchRaw']>;
   let settings: Settings;
+  const syncSaves = vi.fn<LaunchServiceDeps['syncSaves']>(async (syncedRom) => ({
+    romId: syncedRom.id,
+    status: 'synced',
+    items: [],
+    at: '2026-01-01T00:00:00.000Z',
+  }));
   let now: number;
 
   const ROM_BYTES = Buffer.from('pretend this is an N64 ROM');
@@ -201,6 +207,7 @@ describe('LaunchService', () => {
       listInstalledCores: () => new Set(['mupen64plus_next_libretro']),
       spawn: spawn as unknown as LaunchServiceDeps['spawn'],
       onStateChanged: (state) => states.push(state),
+      syncSaves,
       now: () => now,
       ...overrides,
     });
@@ -214,6 +221,7 @@ describe('LaunchService', () => {
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'romm-launcher-launch-'));
     states = [];
+    syncSaves.mockClear();
     now = 1_000_000;
     settings = defaultSettings('PC');
     child = new EventEmitter();
@@ -251,14 +259,28 @@ describe('LaunchService', () => {
 
     now += 90_000;
     child.emit('exit', 0);
+    await vi.waitFor(() => expect(service.getState().phase).toBe('exited'));
 
-    expect(service.getState()).toEqual({
+    expect(service.getState()).toMatchObject({
       phase: 'exited',
       romId: rom.id,
       exitCode: 0,
       playedSeconds: 90,
+      sync: { status: 'synced' },
     });
-    expect(phases()).toEqual(['starting', 'downloading', 'starting', 'running', 'exited']);
+    expect(phases()).toEqual([
+      'starting',
+      'downloading',
+      'starting',
+      'syncing',
+      'starting',
+      'running',
+      'syncing',
+      'exited',
+    ]);
+    // Saves are synced once before the game starts and once after it exits.
+    expect(syncSaves).toHaveBeenCalledTimes(2);
+    expect(syncSaves).toHaveBeenLastCalledWith(rom, 'mupen64plus_next');
   });
 
   it('does not download a ROM that is already in the cache', async () => {
@@ -268,7 +290,7 @@ describe('LaunchService', () => {
     await createService().play(rom.id);
 
     expect(fetchRaw).not.toHaveBeenCalled();
-    expect(phases()).toEqual(['starting', 'running']);
+    expect(phases()).toEqual(['starting', 'syncing', 'starting', 'running']);
   });
 
   it('refuses a second game while one is running, then allows one after exit', async () => {
@@ -279,6 +301,7 @@ describe('LaunchService', () => {
     expect(service.getState().phase).toBe('running');
 
     child.emit('exit', 0);
+    await vi.waitFor(() => expect(service.getState().phase).toBe('exited'));
     await expect(service.play(rom.id)).resolves.toBeUndefined();
   });
 

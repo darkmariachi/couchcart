@@ -73,6 +73,7 @@ if (!app.requestSingleInstanceLock()) {
     const launcher = new LauncherApp({
       dataDir: app.getPath('userData'),
       hostname: hostname(),
+      appVersion: app.getVersion(),
       encryptor: osEncryptor,
       onLaunchStateChanged: (state) => {
         if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -81,7 +82,8 @@ if (!app.requestSingleInstanceLock()) {
 
         // Get out of the way while the game runs, and take the screen back when it ends.
         if (state.phase === 'running') mainWindow.hide();
-        if (state.phase === 'exited') {
+        const gameEnded = state.phase === 'syncing' && state.stage === 'after-exit';
+        if (gameEnded && !mainWindow.isVisible()) {
           mainWindow.show();
           mainWindow.focus();
         }

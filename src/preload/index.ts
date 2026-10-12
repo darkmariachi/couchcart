@@ -38,6 +38,11 @@ const api: LauncherApi = {
   },
   debug: { apiProbe: call('debug:apiProbe') },
   retroarch: { status: call('retroarch:status') },
+  saves: {
+    sync: call('saves:sync'),
+    lastReport: call('saves:lastReport'),
+    resolveConflict: call('saves:resolveConflict'),
+  },
   game: {
     play: call('game:play'),
     state: call('game:state'),

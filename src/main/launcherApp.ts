@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import type {
   AuthStatus,
+  ConflictResolution,
+  SyncReport,
   LaunchState,
   LoginRequest,
   PlatformSummary,
@@ -14,7 +16,12 @@ import type {
   ServerInfo,
 } from '../shared/ipc';
 import { listInstalledCores } from './launcher/cores';
-import { LaunchService } from './launcher/launchService';
+import { resolveCore, DEFAULT_CORES } from './launcher/cores';
+import { LaunchService, emulatorName } from './launcher/launchService';
+import { log } from './logging/logger';
+import { SaveBackups } from './saves/backups';
+import { SaveSyncService, type SyncableRom } from './saves/saveSyncService';
+import { SyncStore } from './saves/syncStore';
 import { locateRetroArch } from './launcher/retroarch';
 import { DataPaths } from './paths';
 import { AuthSession } from './romm/auth';
@@ -33,6 +40,7 @@ interface Connection {
 export interface LauncherAppOptions {
   dataDir: string;
   hostname: string;
+  appVersion: string;
   encryptor: Encryptor;
   onLaunchStateChanged: (state: LaunchState) => void;
 }
@@ -42,27 +50,44 @@ export class LauncherApp {
   private readonly settings: SettingsStore;
   private readonly credentials: CredentialStore;
   private readonly launcher: LaunchService;
+  private readonly saveSync: SaveSyncService;
+  private readonly syncStore: SyncStore;
   private connection: Connection | null = null;
 
-  constructor(options: LauncherAppOptions) {
+  constructor(private readonly options: LauncherAppOptions) {
     this.settings = new SettingsStore(join(options.dataDir, 'settings.json'), options.hostname);
     this.credentials = new CredentialStore(
       join(options.dataDir, 'credentials.bin'),
       options.encryptor,
     );
 
+    const paths = new DataPaths(options.dataDir, () => this.settings.get().cacheDir);
+    this.syncStore = new SyncStore(join(options.dataDir, 'sync.db'));
+    this.saveSync = new SaveSyncService({
+      getRemote: () => this.requireConnection().client,
+      store: this.syncStore,
+      backups: new SaveBackups(
+        join(options.dataDir, 'save-backups'),
+        () => this.settings.get().saveBackupCount,
+      ),
+      paths,
+      getDeviceId: () => this.ensureDeviceId(),
+    });
+
     this.launcher = new LaunchService({
       getRomSource: () => this.requireConnection().client,
       getSettings: () => this.settings.get(),
-      paths: new DataPaths(options.dataDir, () => this.settings.get().cacheDir),
+      paths,
+      syncSaves: (rom, emulator) => this.saveSync.syncRom(rom, emulator),
       locateRetroArch,
       listInstalledCores,
       spawn,
       onStateChanged: options.onLaunchStateChanged,
     });
 
-    const { serverUrl } = this.settings.get();
+    const { serverUrl, username } = this.settings.get();
     if (serverUrl) this.connection = this.connect(serverUrl);
+    if (serverUrl && username) this.syncStore.bindAccount(accountKey(serverUrl, username));
   }
 
   probeServer(serverUrl: string): Promise<ServerInfo> {
@@ -88,13 +113,21 @@ export class LauncherApp {
     // Ask the server who we are instead of trusting what was typed (it may be an email).
     const user = await connection.client.getCurrentUser();
     this.connection = connection;
-    this.settings.update({ serverUrl, username: user.username });
+    // A device id belongs to one account on one server.
+    const previous = this.settings.get();
+    const sameAccount = previous.serverUrl === serverUrl && previous.username === user.username;
+    this.settings.update({
+      serverUrl,
+      username: user.username,
+      deviceId: sameAccount ? previous.deviceId : null,
+    });
+    this.syncStore.bindAccount(accountKey(serverUrl, user.username));
     return this.status();
   }
 
   logout(): AuthStatus {
     this.connection?.auth.logout();
-    this.settings.update({ username: null });
+    this.settings.update({ username: null, deviceId: null });
     return this.status();
   }
 
@@ -145,6 +178,56 @@ export class LauncherApp {
     return this.launcher.getState();
   }
 
+  async syncSaves(romId: number): Promise<SyncReport> {
+    const rom = await this.requireConnection().client.getRom(romId);
+    return this.saveSync.syncRom(rom, await this.emulatorFor(rom));
+  }
+
+  getLastSyncReport(romId: number): SyncReport | null {
+    return this.saveSync.getLastReport(romId);
+  }
+
+  async resolveConflict(resolution: ConflictResolution): Promise<SyncReport> {
+    const rom = await this.requireConnection().client.getRom(resolution.romId);
+    return this.saveSync.resolveConflict(rom, resolution, await this.emulatorFor(rom));
+  }
+
+  /** The core that would run this game, as the emulator label for uploads. */
+  private async emulatorFor(
+    rom: SyncableRom & { platform_fs_slug: string },
+  ): Promise<string | null> {
+    const status = await this.launcher.getRetroArchStatus();
+    const resolution = resolveCore({
+      romId: rom.id,
+      platformSlug: rom.platform_slug,
+      platformFsSlug: rom.platform_fs_slug,
+      overrides: this.settings.get().coreOverrides,
+      defaults: DEFAULT_CORES,
+      installed: new Set(status.installedCores),
+    });
+    return resolution.found ? emulatorName(resolution.core) : null;
+  }
+
+  /** Registers this PC with RomM once, so saves show which device they came from. */
+  private async ensureDeviceId(): Promise<string | null> {
+    const { deviceId, deviceName } = this.settings.get();
+    if (deviceId) return deviceId;
+    try {
+      const registered = await this.requireConnection().client.registerDevice({
+        name: deviceName,
+        hostname: this.options.hostname,
+        platform: process.platform,
+        clientVersion: this.options.appVersion,
+      });
+      this.settings.update({ deviceId: registered });
+      return registered;
+    } catch (error) {
+      // Device tracking is a nicety; saves still sync without it.
+      log.warn('Could not register this device with RomM', error);
+      return null;
+    }
+  }
+
   private connect(serverUrl: string): Connection {
     const auth = new AuthSession(serverUrl, this.credentials.forServer(serverUrl));
     return { auth, client: new RommClient(serverUrl, createAuthenticatedFetch(auth)) };
@@ -168,4 +251,8 @@ function toRomSummary(rom: SimpleRom): RomSummary {
     hasMultipleFiles: rom.has_multiple_files,
     md5: rom.md5_hash,
   };
+}
+
+function accountKey(serverUrl: string, username: string): string {
+  return `${serverUrl}|${username}`;
 }
