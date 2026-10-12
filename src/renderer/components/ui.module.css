@@ -693,3 +693,35 @@
 .userPill:focus {
   transform: none;
 }
+
+/* The options of a setting, opened underneath its row. */
+.optionList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0 0 0.4rem 1.6rem;
+  padding-left: 0.9rem;
+  border-left: 0.12rem solid var(--romm-primary);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  color: var(--text);
+  font-size: 1.05rem;
+  text-align: left;
+}
+
+.option:focus {
+  transform: none;
+}
+
+/* Fixed width, so the labels line up whether or not an option is the ticked one. */
+.optionMark {
+  display: inline-flex;
+  width: 1.4rem;
+  color: var(--romm-primary-light);
+}

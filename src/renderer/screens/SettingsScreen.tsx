@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { mdiCheck } from '@mdi/js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   CacheKeepMode,
@@ -9,12 +10,14 @@ import type {
 } from '../../shared/ipc';
 import { errorMessage, unwrap } from '../api';
 import { Focusable } from '../components/Focusable';
+import { Icon } from '../components/Icon';
 import { OnScreenKeyboard } from '../components/OnScreenKeyboard';
 import { Screen } from '../components/Screen';
 import ui from '../components/ui.module.css';
-import { formatSize, nextOption, shortCoreName } from '../format';
+import { formatSize, shortCoreName } from '../format';
 import { useControllers, useSettings } from '../hooks';
 import { useControls } from '../input/controls';
+import { focusByKey } from '../input/focus';
 import { useUi } from '../store/ui';
 
 const COMBO_LABELS: Record<GamepadCombo, string> = {
@@ -119,30 +122,25 @@ export function SettingsScreen() {
             {view.platformCores.length === 0 && (
               <p className={ui.note}>Platforms appear here once the library has loaded.</p>
             )}
-            {view.platformCores.map((platform) => {
-              // null stands for "no override": the launcher picks the first installed default.
-              const choices: (string | null)[] = [null, ...platform.options];
-              return (
-                <Row
-                  key={platform.slug}
-                  label={platform.name}
-                  value={
-                    platform.core
-                      ? `${shortCoreName(platform.core)}${platform.override ? '' : ' (automatic)'}`
-                      : 'No core installed'
-                  }
-                  disabled={platform.options.length === 0}
-                  onPress={() =>
-                    update.mutate({
-                      platformCore: {
-                        slug: platform.slug,
-                        core: nextOption(choices, platform.override),
-                      },
-                    })
-                  }
-                />
-              );
-            })}
+            {view.platformCores.map((platform) => (
+              <ChoiceRow
+                key={platform.slug}
+                label={platform.name}
+                value={platform.override}
+                valueLabel={
+                  platform.core
+                    ? `${shortCoreName(platform.core)}${platform.override ? '' : ' (automatic)'}`
+                    : 'No core installed'
+                }
+                disabled={platform.options.length === 0}
+                options={[
+                  // null stands for "no override": the launcher picks the first installed default.
+                  { value: null, label: 'Automatic' },
+                  ...platform.options.map((core) => ({ value: core, label: shortCoreName(core) })),
+                ]}
+                onChoose={(core) => update.mutate({ platformCore: { slug: platform.slug, core } })}
+              />
+            ))}
             <p className={ui.note}>A single game can use a different core from its own page.</p>
           </Group>
 
@@ -152,18 +150,19 @@ export function SettingsScreen() {
               value={view.cache.dir}
               onPress={() => choosePath.mutate('cache')}
             />
-            <Row
+            <ChoiceRow
               label="Keep downloaded games"
-              value={KEEP_LABELS[view.cache.keep]}
-              onPress={() => update.mutate({ cacheKeep: nextOption(KEEP_MODES, view.cache.keep) })}
+              value={view.cache.keep}
+              options={KEEP_MODES.map((mode) => ({ value: mode, label: KEEP_LABELS[mode] }))}
+              onChoose={(cacheKeep) => update.mutate({ cacheKeep })}
             />
             {view.cache.keep === 'limit' && (
-              <Row
+              <ChoiceRow
                 label="Size limit"
-                value={`${view.cache.limitGb} GB`}
-                onPress={() =>
-                  update.mutate({ cacheLimitGb: nextOption(CACHE_LIMITS_GB, view.cache.limitGb) })
-                }
+                value={view.cache.limitGb}
+                valueLabel={`${view.cache.limitGb} GB`}
+                options={CACHE_LIMITS_GB.map((gb) => ({ value: gb, label: `${gb} GB` }))}
+                onChoose={(cacheLimitGb) => update.mutate({ cacheLimitGb })}
               />
             )}
             <p className={ui.note}>
@@ -248,17 +247,20 @@ function ControllerSettings(props: {
           {ignored.map((controller) => controller.name).join(', ')}.
         </p>
       )}
-      <Row
+      <ChoiceRow
         label="Open the RetroArch menu in a game"
-        value={COMBO_LABELS[combos.menuCombo]}
-        onPress={() => props.onUpdate({ menuCombo: nextOption(COMBOS, combos.menuCombo) })}
+        value={combos.menuCombo}
+        options={COMBOS.map((combo) => ({ value: combo, label: COMBO_LABELS[combo] }))}
+        onChoose={(menuCombo) => props.onUpdate({ menuCombo })}
       />
-      <Row
+      <ChoiceRow
         label="Quit a game"
-        value={
-          combos.quitCombo === 'keep' ? 'From the RetroArch menu' : COMBO_LABELS[combos.quitCombo]
-        }
-        onPress={() => props.onUpdate({ quitCombo: nextOption(COMBOS, combos.quitCombo) })}
+        value={combos.quitCombo}
+        options={COMBOS.map((combo) => ({
+          value: combo,
+          label: combo === 'keep' ? 'From the RetroArch menu' : COMBO_LABELS[combo],
+        }))}
+        onChoose={(quitCombo) => props.onUpdate({ quitCombo })}
       />
       <p className={ui.note}>
         Button layouts and per-game remapping are changed inside RetroArch: open its menu while a
@@ -303,12 +305,11 @@ function SaveSettings(props: { view: SettingsView; onUpdate: (patch: SettingsPat
         disabled={importSaves.isPending}
         onPress={() => importSaves.mutate()}
       />
-      <Row
+      <ChoiceRow
         label="Backups kept per game"
-        value={String(props.view.saveBackupCount)}
-        onPress={() =>
-          props.onUpdate({ saveBackupCount: nextOption(BACKUP_COUNTS, props.view.saveBackupCount) })
-        }
+        value={props.view.saveBackupCount}
+        options={BACKUP_COUNTS.map((count) => ({ value: count, label: String(count) }))}
+        onChoose={(saveBackupCount) => props.onUpdate({ saveBackupCount })}
       />
       {syncAll.isError && <p className={ui.error}>{errorMessage(syncAll.error)}</p>}
       {importSaves.isError && <p className={ui.error}>{errorMessage(importSaves.error)}</p>}
@@ -367,6 +368,73 @@ function Row(props: {
       </span>
       <span className={ui.settingValue}>{props.value}</span>
     </Focusable>
+  );
+}
+
+interface Choice<T> {
+  value: T;
+  label: string;
+}
+
+/**
+ * A setting with a fixed set of options. Selecting the row opens the options underneath
+ * it, with the current one ticked; choosing one (or pressing B) closes them again.
+ */
+function ChoiceRow<T extends string | number | null>(props: {
+  label: string;
+  value: T;
+  /** Text for the row itself, when it should differ from the chosen option's label. */
+  valueLabel?: string;
+  options: Choice<T>[];
+  disabled?: boolean;
+  onChoose: (value: T) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rowKey = `setting-${props.label}`;
+  const optionKey = (value: T) => `${rowKey}-option-${String(value)}`;
+
+  // Opening moves focus onto the current option; closing puts it back on the row.
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open) focusByKey(optionKey(props.value));
+    else if (wasOpen.current) focusByKey(rowKey);
+    wasOpen.current = open;
+    // Only opening and closing move focus, not a change of value while open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useControls(open ? { back: { label: 'Close', run: () => setOpen(false) } } : {}, { level: 15 });
+
+  const current = props.options.find((option) => option.value === props.value);
+  return (
+    <>
+      <Row
+        label={props.label}
+        value={props.valueLabel ?? current?.label ?? String(props.value)}
+        disabled={props.disabled}
+        onPress={() => setOpen(!open)}
+      />
+      {open && (
+        <div className={ui.optionList}>
+          {props.options.map((option) => (
+            <Focusable
+              key={String(option.value)}
+              className={ui.option}
+              focusKey={optionKey(option.value)}
+              onPress={() => {
+                setOpen(false);
+                if (option.value !== props.value) props.onChoose(option.value);
+              }}
+            >
+              <span className={ui.optionMark}>
+                {option.value === props.value && <Icon path={mdiCheck} />}
+              </span>
+              {option.label}
+            </Focusable>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
