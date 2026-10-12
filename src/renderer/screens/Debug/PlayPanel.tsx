@@ -1,21 +1,8 @@
-import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import type { LaunchState } from '../../../shared/ipc';
 import { unwrap } from '../../api';
+import { useLaunchState } from '../../hooks';
 import styles from './Debug.module.css';
-
-function useLaunchState(): LaunchState {
-  const [state, setState] = useState<LaunchState>({ phase: 'idle' });
-
-  useEffect(() => {
-    void window.romm.game.state().then((result) => {
-      if (result.ok) setState(result.value);
-    });
-    return window.romm.game.onStateChanged(setState);
-  }, []);
-
-  return state;
-}
 
 export function PlayPanel({ romId }: { romId: number }) {
   const state = useLaunchState();

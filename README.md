@@ -5,7 +5,7 @@ the library, downloads games, starts them in a locally installed RetroArch, and 
 through RomM. It is a launcher and sync client: RetroArch does all emulation and must be
 installed separately.
 
-Status: Milestone 3 (browse via a debug screen, download, launch in RetroArch, save and state sync).
+Status: Milestone 4 (controller UI: setup wizard, home, platform grid, game page; download, launch and save sync).
 
 ## Development
 
@@ -24,6 +24,20 @@ npm run dev
 | `npm run typecheck` / `npm run lint` | Static checks                                        |
 | `npm run api:fetch -- <url>`         | Download the OpenAPI spec from a RomM instance       |
 | `npm run api:types`                  | Regenerate `src/main/romm/schema.d.ts` from the spec |
+
+## Controls
+
+| Controller         | Keyboard             | Action                                  |
+| ------------------ | -------------------- | --------------------------------------- |
+| D-pad / left stick | Arrow keys           | Move                                    |
+| A                  | Enter                | Select                                  |
+| B                  | Esc or Backspace     | Back                                    |
+| X / Y              | X / Y                | Shown in the footer (search, sort, ...) |
+| LB / RB            | Q / E or PgUp / PgDn | Previous / next platform                |
+| Start              | F1                   | Menu (fullscreen, sign out, exit)       |
+
+The window starts fullscreen. Pass `--windowed` or `--fullscreen` to override the setting;
+`npm run dev` starts windowed.
 
 ## Layout
 

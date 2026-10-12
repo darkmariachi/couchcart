@@ -1,0 +1,172 @@
+/* ---------- Home ---------- */
+
+.section {
+  margin-bottom: 1.6rem;
+}
+
+.sectionTitle {
+  margin: 0 0 0.6rem;
+  color: var(--romm-peach);
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.shelf {
+  display: flex;
+  gap: 1rem;
+  /* Padding gives the focus glow and the lift room inside the scroll container. */
+  padding: 0.8rem 0.6rem 1rem;
+  margin: 0 -0.6rem;
+  overflow-x: auto;
+  scroll-padding: 3rem;
+}
+
+.shelfItem {
+  flex: 0 0 11rem;
+  /* Without this a long title would stretch its card wider than the others. */
+  min-width: 0;
+}
+
+.moreCard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 12rem;
+  padding: 1rem;
+  color: var(--romm-lavender);
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ---------- Platform ---------- */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 1.2rem 1rem;
+  padding: 0.6rem;
+}
+
+/* Lets the browser skip layout and paint for cards far outside the viewport. */
+.gridItem {
+  content-visibility: auto;
+  contain-intrinsic-size: 11rem 17rem;
+}
+
+/* ---------- Game detail ---------- */
+
+.detail {
+  display: grid;
+  grid-template-columns: 20rem 1fr;
+  gap: 2.5rem;
+  align-items: start;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.6rem;
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  font-size: 1.05rem;
+}
+
+.description {
+  max-width: 60rem;
+  margin: 0 0 1.4rem;
+  font-size: 1.1rem;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.4rem;
+}
+
+.statusBox {
+  max-width: 60rem;
+  padding: 1rem 1.2rem;
+  border-radius: 0.6rem;
+  background: var(--surface-1);
+  font-size: 1.05rem;
+}
+
+.statusBox p {
+  margin: 0 0 0.6rem;
+}
+
+/* ---------- Setup wizard ---------- */
+
+.wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  max-width: 56rem;
+  font-size: 1.15rem;
+  line-height: 1.5;
+}
+
+.wizard p {
+  margin: 0;
+}
+
+.steps {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.stepDot {
+  width: 2.4rem;
+  height: 0.35rem;
+  border-radius: 0.2rem;
+  background: var(--surface-2);
+}
+
+.stepDone {
+  background: var(--romm-peach);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 0.8rem 1.2rem;
+  text-align: left;
+}
+
+.fieldLabel {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.fieldValue {
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
