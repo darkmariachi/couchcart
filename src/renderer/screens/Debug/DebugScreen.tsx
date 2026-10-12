@@ -5,6 +5,8 @@ import { ApiProbePanel } from './ApiProbePanel';
 import styles from './Debug.module.css';
 import { LoginPanel } from './LoginPanel';
 import { PlatformList } from './PlatformList';
+import { PlayPanel } from './PlayPanel';
+import { RetroArchPanel } from './RetroArchPanel';
 import { RomAssetsPanel } from './RomAssetsPanel';
 import { RomTable } from './RomTable';
 
@@ -81,6 +83,7 @@ function Library() {
           selectedId={platform?.id ?? null}
           onSelect={selectPlatform}
         />
+        <RetroArchPanel />
         <ApiProbePanel />
       </div>
       <div className={styles.stack}>
@@ -95,7 +98,12 @@ function Library() {
         ) : (
           <p className={styles.muted}>This RomM library has no games yet.</p>
         )}
-        {selectedRomId !== null && <RomAssetsPanel romId={selectedRomId} />}
+        {selectedRomId !== null && (
+          <>
+            <PlayPanel romId={selectedRomId} />
+            <RomAssetsPanel romId={selectedRomId} />
+          </>
+        )}
       </div>
     </div>
   );
