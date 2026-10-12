@@ -58,7 +58,7 @@ The setup wizard asks for:
 | A                  | Enter                | Select                                    |
 | B                  | Esc or Backspace     | Back                                      |
 | X / Y              | X / Y                | Shown in the footer (search, sort, ...)   |
-| LB / RB            | Q / E or PgUp / PgDn | Previous / next platform                  |
+| LB / RB            | Q / E or PgUp / PgDn | Previous / next section of the top bar    |
 | Start              | F1                   | Menu (search, fullscreen, sign out, exit) |
 
 Text is entered with an on-screen keyboard; a physical keyboard types straight into it.
@@ -78,7 +78,8 @@ Exit launcher.
 - **Favourites:** choose "Add to favourites" on a game's page. It is the same favourites list
   RomM's web interface uses.
 - **Search** looks through the whole library. Inside a platform or collection, X filters just
-  that list.
+  that list. Either way, matching games are suggested as you type: move up from the keys to
+  pick one.
 
 Artwork is not bundled with the launcher. Covers, screenshots, platform icons and the RomM
 logo are loaded from your own RomM server and kept on disk, so they also show offline.
