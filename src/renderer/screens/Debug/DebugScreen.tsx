@@ -9,6 +9,7 @@ import { PlayPanel } from './PlayPanel';
 import { RetroArchPanel } from './RetroArchPanel';
 import { RomAssetsPanel } from './RomAssetsPanel';
 import { RomTable } from './RomTable';
+import { SavesPanel } from './SavesPanel';
 
 const DEFAULT_PLATFORM_SLUG = 'n64';
 
@@ -101,6 +102,7 @@ function Library() {
         {selectedRomId !== null && (
           <>
             <PlayPanel romId={selectedRomId} />
+            <SavesPanel romId={selectedRomId} />
             <RomAssetsPanel romId={selectedRomId} />
           </>
         )}

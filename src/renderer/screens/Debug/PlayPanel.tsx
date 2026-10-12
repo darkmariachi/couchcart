@@ -22,7 +22,7 @@ export function PlayPanel({ romId }: { romId: number }) {
   // Failures also arrive through the launch state, which is what gets displayed.
   const play = useMutation({ mutationFn: () => unwrap(window.romm.game.play(romId)) });
 
-  const busy = ['downloading', 'starting', 'running'].includes(state.phase);
+  const busy = ['downloading', 'starting', 'syncing', 'running'].includes(state.phase);
 
   return (
     <section className={styles.panel}>
@@ -49,10 +49,14 @@ function describe(state: LaunchState): string {
     }
     case 'starting':
       return `Starting ROM ${state.romId}…`;
+    case 'syncing':
+      return state.stage === 'before-launch'
+        ? 'Checking the server for newer saves…'
+        : 'Uploading saves…';
     case 'running':
       return `ROM ${state.romId} is running in RetroArch (${state.core}).`;
     case 'exited':
-      return `ROM ${state.romId} exited with code ${state.exitCode ?? 'unknown'} after ${state.playedSeconds}s.`;
+      return `ROM ${state.romId} exited with code ${state.exitCode ?? 'unknown'} after ${state.playedSeconds}s. Saves: ${state.sync.status}.`;
     case 'failed':
       return state.error.message;
   }
