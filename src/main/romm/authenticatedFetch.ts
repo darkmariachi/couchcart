@@ -41,6 +41,7 @@ export function createAuthenticatedFetch(
       try {
         response = await fetchImpl(outgoing);
       } catch (cause) {
+        if (request.signal.aborted) throw cause; // cancelled by the caller, not a failure
         if (attempt >= attempts) {
           throw new NetworkError('Could not reach the RomM server.', { cause });
         }
