@@ -21,8 +21,7 @@ const sleep = vi.fn(async () => {});
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'romm-launcher-dl-'));
   download = {
-    romId: 21,
-    fileName: 'Game (U) [!].z64',
+    urlPath: '/api/roms/21/content/Game%20(U)%20%5B!%5D.z64',
     sizeBytes: CONTENT.length,
     md5: MD5,
     destination: join(dir, 'n64', 'Game (U) [!].z64'),

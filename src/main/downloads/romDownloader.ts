@@ -6,8 +6,8 @@ import { LauncherError } from '../errors';
 import { NetworkError, RommApiError } from '../romm/errors';
 
 export interface RomDownload {
-  romId: number;
-  fileName: string;
+  /** Server path of the content, e.g. `/api/roms/12/content/Game.z64`. */
+  urlPath: string;
   /** Size RomM reports for the file; used when the response does not declare one. */
   sizeBytes: number;
   /** MD5 of the file as stored on the server, when RomM has computed it. */
@@ -82,7 +82,7 @@ async function fetchIntoPartFile(
   partPath: string,
   { onProgress, signal }: DownloadOptions,
 ): Promise<number> {
-  const url = `/api/roms/${download.romId}/content/${encodeURIComponent(download.fileName)}`;
+  const url = download.urlPath;
   let existingBytes = (await sizeOf(partPath)) ?? 0;
 
   let response = await source.fetchRaw(url, {

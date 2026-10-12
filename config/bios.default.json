@@ -1,0 +1,27 @@
+{
+  "3do": [{ "name": "3DO BIOS", "anyOf": ["panafz1.bin", "panafz10.bin", "goldstar.bin"] }],
+  "dc": [{ "name": "Dreamcast BIOS", "anyOf": ["dc/dc_boot.bin"] }],
+  "neogeoaes": [{ "name": "Neo Geo BIOS", "anyOf": ["neogeo.zip"] }],
+  "neogeomvs": [{ "name": "Neo Geo BIOS", "anyOf": ["neogeo.zip"] }],
+  "ps2": [{ "name": "PlayStation 2 BIOS", "anyOf": ["pcsx2/bios"] }],
+  "psx": [
+    {
+      "name": "PlayStation BIOS",
+      "anyOf": [
+        "scph5501.bin",
+        "scph5500.bin",
+        "scph5502.bin",
+        "scph1001.bin",
+        "scph7001.bin",
+        "scph101.bin",
+        "psxonpsp660.bin"
+      ]
+    }
+  ],
+  "saturn": [
+    { "name": "Saturn BIOS", "anyOf": ["sega_101.bin", "mpr-17933.bin", "saturn_bios.bin"] }
+  ],
+  "segacd": [
+    { "name": "Sega CD BIOS", "anyOf": ["bios_CD_U.bin", "bios_CD_E.bin", "bios_CD_J.bin"] }
+  ]
+}
