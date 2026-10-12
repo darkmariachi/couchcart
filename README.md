@@ -6,6 +6,10 @@
   <h3>Your RomM library, on the couch, with a controller.</h3>
 
   <p>
+    <a href="https://darkmariachi.github.io/couchcart/"><img src="https://img.shields.io/badge/Download-for%20Windows%20and%20Linux-2ec4b6?style=for-the-badge" alt="Download Couchcart"></a>
+  </p>
+
+  <p>
     <a href="https://github.com/darkmariachi/couchcart/actions/workflows/ci.yml"><img src="https://github.com/darkmariachi/couchcart/actions/workflows/ci.yml/badge.svg" alt="Checks"></a>
     <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-2ec4b6" alt="Windows and Linux">
     <img src="https://img.shields.io/badge/RomM-5.x-2ec4b6" alt="RomM 5.x">
@@ -107,7 +111,9 @@ If you try one of the untested rows, an issue saying how it went is very welcome
 
 ## Install
 
-Download a file from a release, or build it yourself (see [Building](#building)).
+Get the newest version from the [download page](https://darkmariachi.github.io/couchcart/) or
+the [latest release](https://github.com/darkmariachi/couchcart/releases/latest), or build it
+yourself (see [Building](#building)).
 
 **Windows**
 
@@ -436,10 +442,12 @@ The files are written to `dist/`.
 
 ### Checks and releases
 
-Two GitHub Actions workflows live in `.github/workflows`:
+Three GitHub Actions workflows live in `.github/workflows`:
 
 - **Checks** runs formatting, types, lint, tests and a build on Windows and Linux for every push
   to `main` and every pull request.
+- **Website** publishes `site/` to the [download page](https://darkmariachi.github.io/couchcart/)
+  whenever it changes. The page finds the newest release by itself.
 - **Build installers** builds the Windows and Linux files. Run it by hand from the Actions tab
   to get them as a downloadable artifact, or push a tag such as `v0.2.0` to also create a draft
   release with the files attached.

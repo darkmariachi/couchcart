@@ -1,0 +1,53 @@
+name: Website
+
+# Publishes site/ to GitHub Pages: https://darkmariachi.github.io/couchcart/
+on:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - assets/steam/**
+      - docs/screenshots/**
+      - build/icon.png
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer one waits for the one in progress to finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # The page reuses the app icon, the README screenshots and the Steam artwork, so they
+      # are gathered here rather than kept twice in the repository.
+      - name: Assemble the site
+        run: |
+          mkdir _site
+          cp site/* _site/
+          cp build/icon.png _site/icon.png
+          cp docs/screenshots/home.jpg docs/screenshots/grid.jpg docs/screenshots/game.jpg _site/
+          zip -j _site/Couchcart-steam-artwork.zip assets/steam/*
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v5

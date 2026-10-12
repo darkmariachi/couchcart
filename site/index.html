@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Couchcart: your RomM library, on the couch</title>
+    <meta
+      name="description"
+      content="A couch-friendly desktop launcher for a self-hosted RomM library. Browse with a controller, press Play, and keep your saves in sync."
+    />
+    <meta property="og:title" content="Couchcart" />
+    <meta property="og:description" content="Your RomM library, on the couch, with a controller." />
+    <meta property="og:image" content="https://darkmariachi.github.io/couchcart/home.jpg" />
+    <link rel="icon" href="icon.png" />
+    <style>
+      body {
+        margin: 0;
+        background: #0b0f14;
+        color: #e8eef2;
+        font:
+          17px/1.55 system-ui,
+          'Segoe UI',
+          sans-serif;
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 48px 20px 64px;
+        text-align: center;
+      }
+      h1 {
+        margin: 12px 0 4px;
+        color: #2ec4b6;
+        letter-spacing: 0.04em;
+      }
+      h2 {
+        margin: 48px 0 8px;
+        font-size: 22px;
+      }
+      a {
+        color: #6fe3d6;
+      }
+      .button {
+        display: inline-block;
+        margin: 24px 0 6px;
+        padding: 14px 30px;
+        border-radius: 999px;
+        background: #2ec4b6;
+        color: #06201d;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .muted {
+        color: #9fb0ba;
+        font-size: 15px;
+      }
+      img.shot {
+        width: 100%;
+        height: auto;
+        border-radius: 12px;
+        border: 1px solid #22303a;
+      }
+      .hero {
+        margin-top: 28px;
+      }
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+      }
+      ol,
+      ul {
+        text-align: left;
+        margin: 12px auto 0;
+        max-width: 640px;
+      }
+      li {
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="icon.png" width="110" height="110" alt="" />
+      <h1>COUCHCART</h1>
+      <p>
+        A couch-friendly launcher for a self-hosted <a href="https://romm.app">RomM</a> library.
+        Pick a game with a controller, press Play, and carry on from the same save on any PC.
+      </p>
+      <a
+        class="button"
+        id="download"
+        href="https://github.com/darkmariachi/couchcart/releases/latest"
+        >Download for Windows</a
+      >
+      <p class="muted" id="details">
+        Windows 10 or 11 · the installer is the file ending in <em>setup.exe</em>
+      </p>
+      <p class="muted">
+        <a href="https://github.com/darkmariachi/couchcart/releases/latest"
+          >Linux and portable builds</a
+        >
+        · <a href="https://github.com/darkmariachi/couchcart">Source code</a> ·
+        <a href="Couchcart-steam-artwork.zip">Artwork for adding it to Steam</a>
+      </p>
+
+      <img class="shot hero" src="home.jpg" width="1280" height="720" alt="The home screen" />
+      <div class="gallery">
+        <img
+          class="shot"
+          src="grid.jpg"
+          width="1280"
+          height="720"
+          alt="A platform's games as a grid of covers"
+        />
+        <img class="shot" src="game.jpg" width="1280" height="720" alt="A game's page" />
+      </div>
+      <p class="muted">The games and artwork in these screenshots are invented.</p>
+
+      <h2>What it does</h2>
+      <ul>
+        <li>Browses your platforms, collections and favourites by gamepad, keyboard or mouse.</li>
+        <li>Downloads a game the first time you play it and starts it in RetroArch.</li>
+        <li>
+          Syncs saves and save states with RomM before and after each session, and asks instead of
+          overwriting when two PCs disagree.
+        </li>
+        <li>
+          On Windows, downloads RetroArch and the cores you need for you. It bundles no emulator, no
+          cores and no games.
+        </li>
+        <li>No telemetry, and no account besides your own RomM server.</li>
+      </ul>
+
+      <h2>Getting started</h2>
+      <ol>
+        <li>
+          Run the installer. Windows shows a "Windows protected your PC" warning because the app is
+          not code-signed: choose <strong>More info</strong>, then <strong>Run anyway</strong>.
+        </li>
+        <li>
+          Enter your RomM server's address, then sign in by scanning the code on screen or with your
+          username and password.
+        </li>
+        <li>
+          When it asks about RetroArch, the emulator that runs the games, choose
+          <strong>Set up RetroArch for me</strong>, then
+          <strong>Download the missing cores</strong>. If you already have RetroArch, it is found by
+          itself.
+        </li>
+      </ol>
+      <p class="muted">
+        You need a RomM 5.x server. The
+        <a href="https://github.com/darkmariachi/couchcart#readme">README</a> has the full guide and
+        says what is and is not tested yet.
+      </p>
+      <p class="muted">
+        Couchcart is an independent, open-source project (MIT). It is not affiliated with RomM,
+        RetroArch or libretro.
+      </p>
+    </main>
+    <script>
+      // Point the button straight at the newest installer on GitHub. Without this (no script, or
+      // GitHub unreachable) the button opens the releases page, which lists the same file.
+      fetch('https://api.github.com/repos/darkmariachi/couchcart/releases/latest')
+        .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+        .then((release) => {
+          const installer = release.assets.find((asset) => asset.name.endsWith('-setup.exe'));
+          if (!installer) return;
+          document.getElementById('download').href = installer.browser_download_url;
+          document.getElementById('details').textContent =
+            'Version ' +
+            release.tag_name.replace(/^v/, '') +
+            ' · Windows 10 or 11 · ' +
+            Math.round(installer.size / 1048576) +
+            ' MB';
+        })
+        .catch(() => {});
+    </script>
+  </body>
+</html>
