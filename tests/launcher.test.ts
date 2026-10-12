@@ -229,6 +229,7 @@ describe('LaunchService', () => {
     executablePath: '/opt/retroarch/retroarch',
     workingDir: '/opt/retroarch',
     dataDir: '/opt/retroarch',
+    managed: false,
     coresDir: '/opt/retroarch/cores',
     systemDir: '/opt/retroarch/system',
     kind: 'standalone',
@@ -393,6 +394,73 @@ describe('LaunchService', () => {
 
     await expect(play(steam)).rejects.toThrow(/DLC/);
     await expect(play(createService(noCores))).rejects.toThrow(/Online Updater/);
+  });
+
+  describe('when a core can be downloaded', () => {
+    const noCores = { listInstalledCores: () => new Set<string>() };
+
+    it('asks before downloading one, having fetched nothing yet', async () => {
+      const installCore = vi.fn(async () => 'mupen64plus_next_libretro');
+      const service = createService({ ...noCores, installCore });
+
+      await play(service);
+
+      expect(service.getState()).toMatchObject({
+        phase: 'blocked',
+        block: { type: 'core', platformName: 'Nintendo 64' },
+      });
+      expect(installCore).not.toHaveBeenCalled();
+      expect(downloadFile).not.toHaveBeenCalled();
+      expect(spawn).not.toHaveBeenCalled();
+    });
+
+    it('downloads the core and starts the game once the user agrees', async () => {
+      const installCore = vi.fn(async (candidates: string[]) => candidates[0] ?? '');
+      const service = createService({ ...noCores, installCore });
+
+      await play(service, { installCore: true });
+
+      expect(installCore).toHaveBeenCalledWith(
+        expect.arrayContaining(['mupen64plus_next_libretro']),
+        install,
+      );
+      expect(phases()).toEqual([
+        'starting',
+        'installing-core',
+        'starting',
+        'downloading',
+        'syncing',
+        'starting',
+        'running',
+      ]);
+      const [, args] = spawn.mock.calls[0] ?? [];
+      expect(args?.join(' ')).toContain(installCore.mock.calls[0]?.[0][0]);
+    });
+
+    it('reports a failed core download as a failed launch', async () => {
+      const service = createService({
+        ...noCores,
+        installCore: async () => {
+          throw new LauncherError('download_failed', 'The download was interrupted. Try again.');
+        },
+      });
+
+      await expect(play(service, { installCore: true })).rejects.toMatchObject({
+        code: 'download_failed',
+      });
+      expect(service.getState()).toMatchObject({ phase: 'failed' });
+      expect(spawn).not.toHaveBeenCalled();
+    });
+
+    it('still sends Steam users to the DLC list', async () => {
+      const service = createService({
+        ...noCores,
+        installCore: async () => 'x',
+        locateRetroArch: async () => ({ ...install, kind: 'steam' }),
+      });
+
+      await expect(play(service)).rejects.toThrow(/DLC/);
+    });
   });
 
   it('reports when RetroArch is not installed', async () => {

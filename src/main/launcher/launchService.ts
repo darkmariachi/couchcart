@@ -27,6 +27,7 @@ import type { DataPaths } from '../paths';
 import type { Settings } from '../settings/schema';
 import { findMissingBios } from './bios';
 import { DEFAULT_CORES, coreFileExtension, resolveCore, type CoreMap } from './cores';
+import { buildbotPlatform, canSetUpRetroArch } from './emulatorSetup';
 import { buildLaunchArgs, buildLaunchConfig } from './launchConfig';
 import type { LocateOptions, RetroArchInstall } from './retroarch';
 
@@ -57,6 +58,8 @@ export interface LaunchServiceDeps {
   syncSaves: (rom: LaunchableRom, emulator: string) => Promise<SyncReport>;
   /** Extra RetroArch settings that put the connected controllers on player ports. */
   getControllerSettings: () => Promise<Record<string, string>>;
+  /** Downloads the first available of `candidates` into the install; resolves with its name. */
+  installCore?: (candidates: string[], install: RetroArchInstall) => Promise<string>;
   findMissingBios?: typeof findMissingBios;
   defaultCores?: CoreMap;
   now?: () => number;
@@ -74,7 +77,9 @@ export class LaunchService {
 
   /** True while a game is being prepared or is running. */
   get isBusy(): boolean {
-    return ['downloading', 'starting', 'syncing', 'running'].includes(this.state.phase);
+    return ['downloading', 'starting', 'installing-core', 'syncing', 'running'].includes(
+      this.state.phase,
+    );
   }
 
   async getRetroArchStatus(): Promise<RetroArchStatus> {
@@ -87,6 +92,9 @@ export class LaunchService {
         version: null,
         coresDir: null,
         installedCores: [],
+        managed: false,
+        canSetUp: canSetUpRetroArch(),
+        canInstallCores: false,
       };
     }
     return {
@@ -96,6 +104,9 @@ export class LaunchService {
       version: install.version,
       coresDir: install.coresDir,
       installedCores: [...this.deps.listInstalledCores(install.coresDir)].sort(),
+      managed: install.managed,
+      canSetUp: canSetUpRetroArch(),
+      canInstallCores: canDownloadCores(install),
     };
   }
 
@@ -119,7 +130,8 @@ export class LaunchService {
 
       // Check everything RetroArch needs before spending time on a download.
       const install = await this.requireRetroArch();
-      const core = this.requireCore(rom, install);
+      const core = await this.prepareCore(rom, install, request);
+      if (!core) return; // waiting for the user to agree to a download
 
       if (!request.ignoreMissingBios) {
         const check = this.deps.findMissingBios ?? findMissingBios;
@@ -218,11 +230,16 @@ export class LaunchService {
     if (install) return install;
     throw new LauncherError(
       'retroarch_not_found',
-      'RetroArch was not found. Install it, or set its location in Settings.',
+      'RetroArch was not found. Open Settings → RetroArch to set it up or choose its location.',
     );
   }
 
-  private requireCore(rom: LaunchableRom, install: RetroArchInstall): string {
+  /** The core to run the game with, or null when the launch stopped to offer a download. */
+  private async prepareCore(
+    rom: LaunchableRom,
+    install: RetroArchInstall,
+    request: PlayRequest,
+  ): Promise<string | null> {
     const resolution = resolveCore({
       romId: rom.id,
       platformSlug: rom.platform_slug,
@@ -240,6 +257,18 @@ export class LaunchService {
         `No RetroArch core is set up for ${platform} yet. Choose one in Settings, under Cores.`,
       );
     }
+    const { installCore } = this.deps;
+    if (installCore && canDownloadCores(install)) {
+      if (!request.installCore) {
+        this.block(rom.id, { type: 'core', platformName: platform, cores: resolution.candidates });
+        return null;
+      }
+      this.setState({ phase: 'installing-core', romId: rom.id });
+      const core = await installCore(resolution.candidates, install);
+      this.setState({ phase: 'starting', romId: rom.id });
+      return core;
+    }
+
     const wanted = resolution.candidates.map((name) => name.replace(/_libretro$/, '')).join(', ');
     const howTo =
       install.kind === 'steam'
@@ -362,4 +391,9 @@ function displayName(rom: LaunchableRom): string {
 /** RomM labels saves with the core name without the libretro suffix. */
 export function emulatorName(core: string): string {
   return core.replace(/_libretro$/, '');
+}
+
+/** Steam installs its cores as DLC; anything else can take a downloaded core. */
+export function canDownloadCores(install: RetroArchInstall): boolean {
+  return install.kind === 'standalone' && buildbotPlatform() !== null;
 }

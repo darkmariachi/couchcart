@@ -45,7 +45,12 @@ const api: LauncherApi = {
     romDetail: call('library:romDetail'),
     coreCoverage: call('library:coreCoverage'),
   },
-  retroarch: { status: call('retroarch:status') },
+  retroarch: {
+    status: call('retroarch:status'),
+    setUp: call('retroarch:setUp'),
+    installMissingCores: call('retroarch:installMissingCores'),
+    onSetupProgress: subscribe('retroarch:setupProgress'),
+  },
   game: {
     play: call('game:play'),
     state: call('game:state'),

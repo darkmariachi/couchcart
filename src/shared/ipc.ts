@@ -265,6 +265,28 @@ export interface RetroArchStatus {
   version: string | null;
   coresDir: string | null;
   installedCores: string[];
+  /** True for the copy the launcher downloaded itself. */
+  managed: boolean;
+  /** The launcher can download RetroArch on this kind of PC. */
+  canSetUp: boolean;
+  /** Missing cores can be downloaded into this install. */
+  canInstallCores: boolean;
+}
+
+/** Progress of a RetroArch or core download the user asked for. */
+export interface SetupProgress {
+  /** What is being fetched: "RetroArch" or a core's name. */
+  item: string;
+  stage: 'downloading' | 'unpacking';
+  receivedBytes: number;
+  totalBytes: number | null;
+}
+
+export interface CoreInstallResult {
+  /** Cores that were installed. */
+  installed: string[];
+  /** Platforms that still have no core, with the reason. */
+  failed: { platform: string; reason: string }[];
 }
 
 export type SyncKind = 'save' | 'state';
@@ -313,7 +335,9 @@ export interface SyncAllResult {
 /** Something the user has to decide before the game can start. */
 export type LaunchBlock =
   | { type: 'conflict'; conflicts: SyncItemResult[] }
-  | { type: 'bios'; platformName: string; missing: string[]; systemDir: string };
+  | { type: 'bios'; platformName: string; missing: string[]; systemDir: string }
+  /** No core is installed, and one of `cores` can be downloaded. */
+  | { type: 'core'; platformName: string; cores: string[] };
 
 export interface PlayRequest {
   romId: number;
@@ -321,12 +345,15 @@ export interface PlayRequest {
   ignoreConflicts?: boolean;
   /** Start even though required BIOS files appear to be missing. */
   ignoreMissingBios?: boolean;
+  /** Download a core for the platform when none is installed. */
+  installCore?: boolean;
 }
 
 export type LaunchState =
   | { phase: 'idle' }
   | { phase: 'downloading'; romId: number; receivedBytes: number; totalBytes: number }
   | { phase: 'starting'; romId: number }
+  | { phase: 'installing-core'; romId: number }
   | { phase: 'syncing'; romId: number; stage: 'before-launch' | 'after-exit' }
   | { phase: 'blocked'; romId: number; block: LaunchBlock }
   | { phase: 'running'; romId: number; core: string; startedAt: string }
@@ -377,6 +404,10 @@ export interface IpcContract {
   'library:coreCoverage': { request: undefined; response: PlatformCoverage[] };
 
   'retroarch:status': { request: undefined; response: RetroArchStatus };
+  /** Downloads RetroArch into the launcher's own folder. Takes a few minutes. */
+  'retroarch:setUp': { request: undefined; response: RetroArchStatus };
+  /** Downloads a core for every platform in the library that has none. */
+  'retroarch:installMissingCores': { request: undefined; response: CoreInstallResult };
   /**
    * Resolves once RetroArch is running, or once the launch is blocked on a decision;
    * later changes arrive as `game:stateChanged`.
@@ -430,6 +461,7 @@ export interface IpcContract {
 export interface IpcEvents {
   'game:stateChanged': LaunchState;
   'downloads:changed': DownloadJob[];
+  'retroarch:setupProgress': SetupProgress;
   /** False while the RomM server cannot be reached. */
   'app:onlineChanged': boolean;
 }
@@ -494,7 +526,12 @@ export interface LauncherApi {
     romDetail: Call<'library:romDetail'>;
     coreCoverage: Call<'library:coreCoverage'>;
   };
-  retroarch: { status: Call<'retroarch:status'> };
+  retroarch: {
+    status: Call<'retroarch:status'>;
+    setUp: Call<'retroarch:setUp'>;
+    installMissingCores: Call<'retroarch:installMissingCores'>;
+    onSetupProgress: Subscribe<'retroarch:setupProgress'>;
+  };
   game: {
     play: Call<'game:play'>;
     state: Call<'game:state'>;

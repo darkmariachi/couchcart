@@ -10,6 +10,9 @@ not contact its authors or any service they run.
 - **Your local network, only when you choose "Find my server"** during setup: it asks each nearby
   address on RomM's default port whether it is a RomM server.
 - **Steam or retroarch.com, only when you press the button for it**, to open RetroArch's page.
+- **libretro's download server (`buildbot.libretro.com`), only when you ask the launcher to set
+  up RetroArch or download a core.** It sees what any download shows a server: your IP address
+  and which files you fetched. Nothing about you or your library is sent.
 
 ## What it stores on your computer
 

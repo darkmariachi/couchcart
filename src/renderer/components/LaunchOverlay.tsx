@@ -7,9 +7,10 @@ import type {
   SyncItemResult,
 } from '../../shared/ipc';
 import { errorMessage, unwrap } from '../api';
-import { formatWhen } from '../format';
+import { formatWhen, shortCoreName } from '../format';
 import { Dialog, MessageDialog } from './Dialog';
 import { Focusable } from './Focusable';
+import { SetupProgressBar } from './SetupProgressBar';
 import styles from './ui.module.css';
 
 /**
@@ -36,6 +37,12 @@ export function LaunchOverlay({ state }: { state: LaunchState }) {
     }
     case 'starting':
       return <Dialog title="Starting…">{null}</Dialog>;
+    case 'installing-core':
+      return (
+        <Dialog title="Getting the core…">
+          <SetupProgressBar idle="Contacting the download server…" />
+        </Dialog>
+      );
     case 'syncing':
       return (
         <Dialog title={state.stage === 'before-launch' ? 'Checking saves…' : 'Saving progress…'}>
@@ -67,8 +74,11 @@ function BlockedDialog(props: { romId: number; block: LaunchBlock; onCancel: () 
 
   // Starting again replaces the blocked state, which closes this dialog.
   const play = useMutation({
-    mutationFn: (options: { ignoreConflicts?: boolean; ignoreMissingBios?: boolean }) =>
-      unwrap(window.romm.game.play({ romId, ...options })),
+    mutationFn: (options: {
+      ignoreConflicts?: boolean;
+      ignoreMissingBios?: boolean;
+      installCore?: boolean;
+    }) => unwrap(window.romm.game.play({ romId, ...options })),
   });
   const resolveAll = useMutation({
     mutationFn: async (keep: ConflictResolution['keep']) => {
@@ -109,6 +119,30 @@ function BlockedDialog(props: { romId: number; block: LaunchBlock; onCancel: () 
           Play anyway
         </Focusable>
         <Focusable className={styles.menuItem} preferred onPress={props.onCancel}>
+          Cancel
+        </Focusable>
+      </Dialog>
+    );
+  }
+
+  if (block.type === 'core') {
+    const [core] = block.cores;
+    return (
+      <Dialog title={`${block.platformName} needs a core`} controls={controls}>
+        <p className={styles.dialogText}>
+          RetroArch runs each console with an add-on called a core, and none is installed for{' '}
+          {block.platformName} yet. The launcher can download {core ? shortCoreName(core) : 'one'}{' '}
+          from libretro, the makers of RetroArch.
+        </p>
+        <Focusable
+          className={styles.menuItem}
+          preferred
+          disabled={busy}
+          onPress={() => play.mutate({ installCore: true })}
+        >
+          Download and play
+        </Focusable>
+        <Focusable className={styles.menuItem} onPress={props.onCancel}>
           Cancel
         </Focusable>
       </Dialog>

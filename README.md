@@ -19,8 +19,9 @@ Couchcart is a desktop launcher for a self-hosted [RomM](https://romm.app) libra
 and a gamepad. Pick a game, press Play, and carry on from the same save on any PC.
 
 It is a launcher and save-sync client. [RetroArch](https://www.retroarch.com) does all the
-emulation and has to be installed separately; Couchcart bundles no emulator, no cores and no
-games.
+emulation. Couchcart bundles no emulator, no cores and no games: it uses a RetroArch you already
+have, or, on Windows, downloads RetroArch and the cores you need from libretro when you ask it
+to.
 
 <p align="center">
   <img src="docs/screenshots/home.jpg" alt="The home screen: continue playing, recently added, platforms and collections" width="1000">
@@ -74,9 +75,9 @@ games.
 ## Requirements
 
 - A RomM server, version 5.x. Developed against 5.4.0.
-- RetroArch, with a core installed for each platform you want to play. The standalone build,
-  the Steam version and, on Linux, a distribution package or the Flatpak are all found
-  automatically.
+- RetroArch, with a core for each platform you want to play. On Windows the setup wizard can
+  download both for you. An existing install is found automatically: the standalone build, the
+  Steam version and, on Linux, a distribution package or the Flatpak.
 - Windows 10 or 11, or 64-bit Linux.
 
 ## Install
@@ -115,8 +116,11 @@ The setup wizard asks for:
    shown on a phone or computer where you are already signed in to RomM, and approve the request
    there. "Sign in with a password instead" is the fallback. Either way only a session token is
    stored, encrypted by the operating system; a password is never saved.
-3. **RetroArch.** It is found automatically in the usual places, including Steam libraries. The
-   wizard lists each platform in your library and whether a core for it is installed.
+3. **RetroArch.** It is found automatically in the usual places, including Steam libraries. If
+   it is not on the PC, "Set up RetroArch for me" downloads it from libretro (about 200 MB) into
+   Couchcart's own folder; this is offered on Windows. The wizard then lists each platform in
+   your library and whether a core for it is installed, and "Download the missing cores" fetches
+   the ones that are not.
 4. **Where to keep downloaded games**, with the free space on that drive.
 5. **Existing saves.** If RetroArch already has saves for games in your library, the launcher
    offers to copy them in so you continue where you left off. RetroArch's own files are not
@@ -268,7 +272,8 @@ Open the menu (Start or F1) → Settings.
 
 - **Controllers:** player order, and the combinations for the RetroArch menu and quitting.
 - **RetroArch:** program location, cores folder, fullscreen, extra launch options.
-- **Cores:** which core each platform uses. A single game can use a different one from its page.
+- **Cores:** which core each platform uses, and "Download missing cores". A single game can use
+  a different core from its page.
 - **Storage:** games folder, what to keep, size limit.
 - **Saves:** sync everything now, import saves from RetroArch, how many backups to keep.
 - **This device:** the name shown in RomM, launcher fullscreen, logs.
@@ -287,6 +292,7 @@ Everything lives in `%APPDATA%\couchcart` (`~/.config/couchcart` on Linux):
 | `roms/<platform>/`              | Downloaded games (movable in Settings)                |
 | `covers/`                       | Cover art and platform icons                          |
 | `logs/launcher.log`             | Log files (five files of 1 MB at most)                |
+| `emulator/RetroArch/`           | RetroArch and its cores, if the launcher set them up  |
 | `accounts/<user>/saves/`        | Game saves, per platform                              |
 | `accounts/<user>/states/`       | Save states, per platform                             |
 | `accounts/<user>/save-backups/` | Backups made before any save was replaced or removed  |
@@ -312,10 +318,12 @@ ignored, RetroArch has no profile for it: start RetroArch on its own and update 
 profiles (Online Updater → Update Controller Profiles), or bind the buttons there once. If it is
 not listed at all, connect it and choose "Look for controllers".
 
-**"No core for … is installed."**
-Install a core for that platform. Standalone RetroArch: Online Updater → Core Downloader. Steam
-version: add the core from RetroArch's DLC list in Steam. Then choose it in Settings → Cores if it
-is not picked automatically.
+**"… needs a core."**
+RetroArch runs each console with an add-on called a core. Choose "Download and play" and the
+launcher fetches one from libretro; Settings → Cores → "Download missing cores" does the same for
+every platform at once. The Steam version of RetroArch is the exception, because its cores are
+Steam DLC: add the core from RetroArch's DLC list in Steam. A core you install yourself
+(RetroArch: Online Updater → Core Downloader) is picked up too.
 
 **"… needs a BIOS file."**
 Some systems (PlayStation, Saturn, Sega CD, Dreamcast and others) need BIOS files in RetroArch's
@@ -323,7 +331,7 @@ Some systems (PlayStation, Saturn, Sega CD, Dreamcast and others) need BIOS file
 for cores that can run without one.
 
 **"RetroArch was not found."**
-Install it, or point the launcher at the RetroArch program (`retroarch.exe` on Windows) in
+On Windows, Settings → RetroArch → "Set up RetroArch for me" downloads it. Otherwise install it, or point the launcher at the RetroArch program (`retroarch.exe` on Windows) in
 Settings → RetroArch. On Linux, a RetroArch that keeps its cores somewhere unusual may also need
 the cores folder set there.
 
@@ -351,7 +359,9 @@ password or session token.
 Couchcart is an independent project. It is not affiliated with, or endorsed by, RomM, RetroArch
 or libretro, or any console maker. It contains none of their code, artwork or logos: it talks to
 a RomM server you run through RomM's public API, and starts a RetroArch you installed yourself.
-It includes no games, BIOS files or emulator cores.
+It includes no games, BIOS files or emulator cores. When you ask it to set up RetroArch or a
+core, those are downloaded from libretro's own server (`buildbot.libretro.com`) to your PC, under
+their own licences; Couchcart does not redistribute them.
 
 - Privacy: see [PRIVACY.md](PRIVACY.md). There is no telemetry.
 - Licence: MIT, see [LICENSE](LICENSE). Bundled software is listed in

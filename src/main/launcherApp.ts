@@ -5,6 +5,8 @@ import { dirname, join } from 'node:path';
 import { APP_ID, LEGACY_APP_ID } from '../shared/app';
 import type {
   AccountOverview,
+  CoreInstallResult,
+  SetupProgress,
   DiscoveredServer,
   ExternalLink,
   AuthStatus,
@@ -43,7 +45,18 @@ import {
   toControllerInfo,
 } from './launcher/controllers';
 import { DEFAULT_CORES, listInstalledCores, resolveCore } from './launcher/cores';
-import { LaunchService, emulatorName, type LaunchableRom } from './launcher/launchService';
+import {
+  LaunchService,
+  canDownloadCores,
+  emulatorName,
+  type LaunchableRom,
+} from './launcher/launchService';
+import {
+  createExtractor,
+  installCore,
+  setUpRetroArch,
+  type Extract,
+} from './launcher/emulatorSetup';
 import { locateRetroArch, type LocateOptions, type RetroArchInstall } from './launcher/retroarch';
 import type { CoverSource } from './library/coverProtocol';
 import { getLogFile, log, readRecentLog } from './logging/logger';
@@ -88,6 +101,11 @@ export interface LauncherAppOptions {
   onLaunchStateChanged: (state: LaunchState) => void;
   onDownloadsChanged: (jobs: DownloadJob[]) => void;
   onOnlineChanged: (online: boolean) => void;
+  onSetupProgress?: (progress: SetupProgress) => void;
+  /** The 7-Zip program used to unpack downloads; setup is unavailable without it. */
+  sevenZipPath?: string;
+  /** Replaces the real unpacking, for tests. */
+  extract?: Extract;
   /** Things only the Electron shell can do. */
   shell: {
     choosePath: (kind: 'directory' | 'file', startIn: string) => Promise<string | null>;
@@ -125,6 +143,7 @@ export class LauncherApp {
   /** A pairing waiting for approval. The device code in it never leaves this process. */
   private pairing: { serverUrl: string; request: PairingRequest } | null = null;
   private online = true;
+  private setupRunning = false;
   private retroArchLookup: { key: string; at: number; install: RetroArchInstall | null } | null =
     null;
   private pendingSyncTimer: NodeJS.Timeout | null = null;
@@ -164,6 +183,7 @@ export class LauncherApp {
       syncSaves: (rom, emulator) => this.saveSync.syncRom(rom, emulator),
       getControllerSettings: () => this.getControllerSettings(),
       locateRetroArch: (lookup) => this.locateRetroArchCached(lookup),
+      installCore: (candidates, install) => this.installCoreInto(candidates, install),
       listInstalledCores,
       spawn,
       onStateChanged: options.onLaunchStateChanged,
@@ -588,6 +608,91 @@ export class LauncherApp {
     return this.launcher.getRetroArchStatus();
   }
 
+  /** Where RetroArch goes when the launcher downloads it. */
+  private get managedRetroArch(): string {
+    return join(this.options.dataDir, 'emulator', 'RetroArch', 'retroarch.exe');
+  }
+
+  private get extractor(): Extract {
+    const { extract, sevenZipPath } = this.options;
+    if (extract) return extract;
+    if (sevenZipPath) return createExtractor(sevenZipPath);
+    throw new LauncherError('internal', 'Downloads cannot be unpacked in this build.');
+  }
+
+  /** One setup download at a time: they write to the same folders. */
+  private async exclusiveSetup<T>(task: () => Promise<T>): Promise<T> {
+    if (this.setupRunning) {
+      throw new LauncherError('busy', 'Another download is still being set up.');
+    }
+    this.setupRunning = true;
+    try {
+      return await task();
+    } finally {
+      this.setupRunning = false;
+      this.retroArchLookup = null;
+    }
+  }
+
+  /** Downloads RetroArch from libretro into the launcher's folder and switches to it. */
+  async setUpRetroArch(): Promise<RetroArchStatus> {
+    if (this.launcher.isBusy) {
+      throw new LauncherError('busy', 'A game is starting or running.');
+    }
+    await this.exclusiveSetup(async () => {
+      await setUpRetroArch(dirname(this.managedRetroArch), {
+        extract: this.extractor,
+        onProgress: this.options.onSetupProgress,
+      });
+      // A location chosen earlier would otherwise keep pointing somewhere else.
+      const { retroarch } = this.settings.get();
+      await this.settings.update({
+        retroarch: { ...retroarch, executablePath: null, coresDir: null },
+      });
+    });
+    return this.getRetroArchStatus();
+  }
+
+  private installCoreInto(candidates: string[], install: RetroArchInstall): Promise<string> {
+    return this.exclusiveSetup(() =>
+      installCore(candidates, install.coresDir, {
+        extract: this.extractor,
+        onProgress: this.options.onSetupProgress,
+      }),
+    );
+  }
+
+  /** Downloads a core for each platform in the library that has none installed. */
+  async installMissingCores(): Promise<CoreInstallResult> {
+    const install = await this.launcher.locateInstall();
+    if (!install) {
+      throw new LauncherError('retroarch_not_found', 'RetroArch was not found.');
+    }
+    if (!canDownloadCores(install)) {
+      throw new LauncherError(
+        'invalid_input',
+        'Cores cannot be downloaded into this RetroArch. Add them from RetroArch itself.',
+      );
+    }
+    const result: CoreInstallResult = { installed: [], failed: [] };
+    for (const platform of await this.getCoreCoverage()) {
+      if (platform.core || platform.candidates.length === 0) continue;
+      // Two platforms may share a core that an earlier round just installed.
+      const present = listInstalledCores(install.coresDir);
+      if (platform.candidates.some((candidate) => present.has(candidate))) continue;
+      try {
+        result.installed.push(await this.installCoreInto(platform.candidates, install));
+      } catch (error) {
+        log.warn(`Installing a core for ${platform.name} failed`, error);
+        result.failed.push({
+          platform: platform.name,
+          reason: error instanceof LauncherError ? error.message : 'The download failed.',
+        });
+      }
+    }
+    return result;
+  }
+
   async play(request: PlayRequest): Promise<undefined> {
     await this.launcher.play(request);
   }
@@ -918,7 +1023,10 @@ export class LauncherApp {
     if (known?.key === key && known.install && Date.now() - known.at < RETRO_ARCH_LOOKUP_TTL_MS) {
       return known.install;
     }
-    const install = await locateRetroArch(lookup);
+    const install = await locateRetroArch({
+      ...lookup,
+      managedExecutable: this.managedRetroArch,
+    });
     this.retroArchLookup = { key, at: Date.now(), install };
     return install;
   }

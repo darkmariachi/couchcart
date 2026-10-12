@@ -6,8 +6,13 @@ under the licence shown.
 Electron also contains Chromium and other components; their notices ship with the app as
 `LICENSES.chromium.html`, next to the executable.
 
+The app also ships the 7-Zip command-line program (7za), Copyright (C) Igor Pavlov, used to
+unpack downloads. 7-Zip is licensed under the GNU LGPL, with a BSD 3-clause licence for parts of
+its code; the program is unmodified and its source is available from https://www.7-zip.org.
+
 Couchcart does not include RetroArch, any libretro core, or RomM. It starts a RetroArch that you
-installed yourself and talks to a RomM server that you run. Game artwork and platform icons are
+installed yourself, or that it downloaded from libretro at your request, and talks to a RomM
+server that you run. Game artwork and platform icons are
 loaded from your RomM server and are not part of Couchcart.
 
 ## react 19.3.0
@@ -326,4 +331,33 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+## 7zip-bin 5.2.0
+
+Licence: MIT
+Source: develar/7zip-bin
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2016 Vladimir Krivosheev
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```

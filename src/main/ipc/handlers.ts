@@ -49,10 +49,13 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
   'library:coreCoverage': noRequest,
 
   'retroarch:status': noRequest,
+  'retroarch:setUp': noRequest,
+  'retroarch:installMissingCores': noRequest,
   'game:play': z.object({
     romId,
     ignoreConflicts: z.boolean().optional(),
     ignoreMissingBios: z.boolean().optional(),
+    installCore: z.boolean().optional(),
   }),
   'game:state': noRequest,
   'game:download': romId,
@@ -141,6 +144,8 @@ export function registerIpcHandlers(
     'library:coreCoverage': () => app.getCoreCoverage(),
 
     'retroarch:status': () => app.getRetroArchStatus(),
+    'retroarch:setUp': () => app.setUpRetroArch(),
+    'retroarch:installMissingCores': () => app.installMissingCores(),
     'game:play': (request) => app.play(request),
     'game:state': () => app.getLaunchState(),
     'game:download': (id) => app.downloadRom(id),

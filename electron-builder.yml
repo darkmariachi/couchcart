@@ -22,6 +22,10 @@ extraResources:
 
 win:
   icon: build/icon.png
+  # Unpacks RetroArch and cores the user asks the launcher to download.
+  extraResources:
+    - from: node_modules/7zip-bin/win/x64/7za.exe
+      to: bin/7za.exe
   target:
     - target: nsis
       arch: [x64]
@@ -39,6 +43,9 @@ portable:
 
 linux:
   icon: build/icon.png
+  extraResources:
+    - from: node_modules/7zip-bin/linux/x64/7za
+      to: bin/7za
   category: Game
   executableName: couchcart
   synopsis: Couch-friendly launcher for RomM libraries

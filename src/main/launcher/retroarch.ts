@@ -17,6 +17,8 @@ export interface RetroArchInstall {
   /** The Steam build installs cores as DLC and has no Online Updater for them. */
   kind: 'steam' | 'standalone';
   version: string | null;
+  /** True for the copy the launcher downloaded into its own folder. */
+  managed: boolean;
 }
 
 /** Library folders listed in Steam's libraryfolders.vdf. */
@@ -162,17 +164,29 @@ export interface LocateOptions {
   /** From settings: when set, only this path is considered. */
   executablePath: string | null;
   coresDir: string | null;
+  /** Where the launcher puts RetroArch when it downloads it; preferred when present. */
+  managedExecutable?: string | null;
 }
 
 export async function locateRetroArch(options: LocateOptions): Promise<RetroArchInstall | null> {
   const candidates = options.executablePath
     ? [options.executablePath]
-    : [...standaloneCandidates(), ...(await steamCandidates())];
+    : [
+        ...(options.managedExecutable ? [options.managedExecutable] : []),
+        ...standaloneCandidates(),
+        ...(await steamCandidates()),
+      ];
 
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;
     const version = await readRetroArchVersion(candidate);
-    if (version) return { ...describeInstall(candidate, options.coresDir), version };
+    if (version) {
+      return {
+        ...describeInstall(candidate, options.coresDir),
+        version,
+        managed: candidate === options.managedExecutable,
+      };
+    }
   }
   return null;
 }

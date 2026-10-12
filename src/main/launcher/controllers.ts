@@ -60,6 +60,9 @@ export async function probeControllers(
       'audio_driver = "null"',
       'menu_driver = "null"',
       'log_to_file = "false"',
+      // The lines read by parseControllerLog are debug output, which a fresh RetroArch
+      // leaves out unless asked.
+      'frontend_log_level = "0"',
       'config_save_on_exit = "false"',
       '',
     ].join('\n'),

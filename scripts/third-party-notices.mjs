@@ -16,6 +16,8 @@ const BUNDLED = [
   'openapi-typescript-helpers',
   '@mdi/js',
   'electron',
+  // Ships the 7-Zip program (7za) that unpacks downloads; see the note in the header.
+  '7zip-bin',
 ];
 
 function licenceText(dir) {
@@ -57,8 +59,13 @@ under the licence shown.
 Electron also contains Chromium and other components; their notices ship with the app as
 \`LICENSES.chromium.html\`, next to the executable.
 
+The app also ships the 7-Zip command-line program (7za), Copyright (C) Igor Pavlov, used to
+unpack downloads. 7-Zip is licensed under the GNU LGPL, with a BSD 3-clause licence for parts of
+its code; the program is unmodified and its source is available from https://www.7-zip.org.
+
 Couchcart does not include RetroArch, any libretro core, or RomM. It starts a RetroArch that you
-installed yourself and talks to a RomM server that you run. Game artwork and platform icons are
+installed yourself, or that it downloaded from libretro at your request, and talks to a RomM
+server that you run. Game artwork and platform icons are
 loaded from your RomM server and are not part of Couchcart.
 `;
 

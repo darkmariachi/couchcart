@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { mdiCheck } from '@mdi/js';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { SetupProgressBar } from '../components/SetupProgressBar';
 import type {
   CacheKeepMode,
   FolderSetting,
@@ -59,6 +60,27 @@ export function SettingsScreen() {
     onSuccess: apply,
   });
 
+  const retroarch = useQuery({
+    queryKey: ['retroarch'],
+    queryFn: () => unwrap(window.romm.retroarch.status()),
+    staleTime: 0,
+  });
+  const refreshEmulator = () => {
+    void retroarch.refetch();
+    void queryClient.invalidateQueries({ queryKey: ['settings'] });
+    void queryClient.invalidateQueries({ queryKey: ['library'] });
+  };
+  const setUpRetroArch = useMutation({
+    mutationFn: () => unwrap(window.romm.retroarch.setUp()),
+    onSettled: refreshEmulator,
+  });
+  const installCores = useMutation({
+    mutationFn: () => unwrap(window.romm.retroarch.installMissingCores()),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['settings'] });
+      void queryClient.invalidateQueries({ queryKey: ['library'] });
+    },
+  });
   const view = settings.data;
   return (
     <Screen title="Settings" ready={settings.isSuccess}>
@@ -78,6 +100,20 @@ export function SettingsScreen() {
               }
               onPress={() => choosePath.mutate('retroarch')}
             />
+            {retroarch.data && !retroarch.data.found && retroarch.data.canSetUp && (
+              <Row
+                label="Set up RetroArch for me"
+                value={setUpRetroArch.isPending ? 'Downloading…' : 'From libretro, about 200 MB'}
+                disabled={setUpRetroArch.isPending}
+                onPress={() => setUpRetroArch.mutate()}
+              />
+            )}
+            {setUpRetroArch.isPending && (
+              <SetupProgressBar idle="Contacting the download server…" />
+            )}
+            {setUpRetroArch.isError && (
+              <p className={ui.error}>{errorMessage(setUpRetroArch.error)}</p>
+            )}
             {view.retroarch.configuredPath && (
               <Row
                 label="Find RetroArch automatically"
@@ -140,6 +176,21 @@ export function SettingsScreen() {
                 ]}
                 onChoose={(core) => update.mutate({ platformCore: { slug: platform.slug, core } })}
               />
+            ))}
+            {view.platformCores.some((platform) => !platform.core) && (
+              <Row
+                label="Download missing cores"
+                value={installCores.isPending ? 'Downloading…' : 'From libretro'}
+                disabled={installCores.isPending}
+                onPress={() => installCores.mutate()}
+              />
+            )}
+            {installCores.isPending && <SetupProgressBar idle="Contacting the download server…" />}
+            {installCores.isError && <p className={ui.error}>{errorMessage(installCores.error)}</p>}
+            {installCores.data?.failed.map((failure) => (
+              <p key={failure.platform} className={ui.error}>
+                {failure.platform}: {failure.reason}
+              </p>
             ))}
             <p className={ui.note}>A single game can use a different core from its own page.</p>
           </Group>

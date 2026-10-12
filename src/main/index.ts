@@ -65,6 +65,14 @@ const osEncryptor: Encryptor = {
   decrypt: (cipherText) => safeStorage.decryptString(cipherText),
 };
 
+/** The 7-Zip program: next to the app when installed, in node_modules during development. */
+function sevenZipPath(): string {
+  const program = process.platform === 'win32' ? '7za.exe' : '7za';
+  if (app.isPackaged) return join(process.resourcesPath, 'bin', program);
+  const folder = process.platform === 'win32' ? 'win' : 'linux';
+  return join(app.getAppPath(), 'node_modules', '7zip-bin', folder, 'x64', program);
+}
+
 function isTrustedSender(event: IpcMainInvokeEvent): boolean {
   return event.senderFrame?.url.startsWith(rendererOrigin) ?? false;
 }
@@ -150,6 +158,8 @@ if (!app.requestSingleInstanceLock()) {
       onLaunchStateChanged,
       onDownloadsChanged: (jobs) => send('downloads:changed', jobs),
       onOnlineChanged: (online) => send('app:onlineChanged', online),
+      onSetupProgress: (progress) => send('retroarch:setupProgress', progress),
+      sevenZipPath: sevenZipPath(),
       shell: {
         choosePath: async (kind, startIn) => {
           if (!mainWindow) return null;

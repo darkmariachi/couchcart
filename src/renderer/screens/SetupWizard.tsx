@@ -5,6 +5,7 @@ import { errorMessage, unwrap } from '../api';
 import { Field } from '../components/Field';
 import { Focusable } from '../components/Focusable';
 import { Screen } from '../components/Screen';
+import { SetupProgressBar } from '../components/SetupProgressBar';
 import ui from '../components/ui.module.css';
 import { useSetupStatus } from '../hooks';
 import { useControls } from '../input/controls';
@@ -142,22 +143,45 @@ function RetroArchStep({ onNext }: StepProps) {
     void retroarch.refetch();
     void coverage.refetch();
   };
+  const setUp = useMutation({
+    mutationFn: () => unwrap(window.romm.retroarch.setUp()),
+    onSettled: recheck,
+  });
+  const installCores = useMutation({
+    mutationFn: () => unwrap(window.romm.retroarch.installMissingCores()),
+    onSettled: recheck,
+  });
+  const working = setUp.isPending || installCores.isPending;
 
   const status = retroarch.data;
   const steam = status?.kind === 'steam';
+  const missingCores =
+    coverage.data?.filter((platform) => !platform.core && platform.candidates.length > 0) ?? [];
+  const canGetCores = Boolean(status?.found && status.canInstallCores && missingCores.length);
+
+  // The buttons change as things get installed; keep focus on the main one.
+  const found = status?.found;
+  useEffect(() => {
+    if (!working) focusFirst();
+  }, [working, found, canGetCores]);
   return (
     <>
       {retroarch.isPending && <p className={ui.muted}>Looking for RetroArch…</p>}
-      {status && !status.found && (
-        <p className={ui.error}>
-          RetroArch was not found. It is free: install it from Steam or from retroarch.com, then
-          choose “Check again”. Games cannot start without it.
+      {status && !status.found && !setUp.isPending && (
+        <p className={status.canSetUp ? undefined : ui.error}>
+          {status.canSetUp
+            ? 'Games run in RetroArch, a free emulator, and it is not on this PC yet. The launcher can download it for you from libretro, its makers (about 200 MB), and keep it in its own folder.'
+            : 'RetroArch was not found. It is free: install it from Steam or from retroarch.com, then choose “Check again”. Games cannot start without it.'}
         </p>
       )}
+      {setUp.isPending && <SetupProgressBar idle="Contacting the download server…" />}
+      {setUp.isError && <p className={ui.error}>{errorMessage(setUp.error)}</p>}
       {status?.found && (
         <p>
           Found RetroArch {status.version}
-          {steam ? ' (Steam)' : ''} with {status.installedCores.length} cores.
+          {steam ? ' (Steam)' : ''}
+          {status.managed ? ' (set up by the launcher)' : ''} with {status.installedCores.length}{' '}
+          {status.installedCores.length === 1 ? 'core' : 'cores'}.
         </p>
       )}
 
@@ -179,7 +203,14 @@ function RetroArchStep({ onNext }: StepProps) {
           ))}
         </ul>
       )}
-      {coverage.data?.some((platform) => !platform.core) && status?.found && (
+      {installCores.isPending && <SetupProgressBar idle="Contacting the download server…" />}
+      {installCores.isError && <p className={ui.error}>{errorMessage(installCores.error)}</p>}
+      {installCores.data?.failed.map((failure) => (
+        <p key={failure.platform} className={ui.error}>
+          {failure.platform}: {failure.reason}
+        </p>
+      ))}
+      {coverage.data?.some((platform) => !platform.core) && status?.found && !canGetCores && (
         <p className={ui.muted}>
           {steam
             ? 'Add missing cores from RetroArch’s DLC list in Steam.'
@@ -189,10 +220,32 @@ function RetroArchStep({ onNext }: StepProps) {
       )}
 
       <div className={ui.row}>
-        <Focusable variant="primary" preferred onPress={onNext}>
-          Continue
+        {status && !status.found && status.canSetUp && (
+          <Focusable variant="primary" preferred disabled={working} onPress={() => setUp.mutate()}>
+            {setUp.isPending ? 'Setting up RetroArch…' : 'Set up RetroArch for me'}
+          </Focusable>
+        )}
+        {canGetCores && (
+          <Focusable
+            variant="primary"
+            preferred
+            disabled={working}
+            onPress={() => installCores.mutate()}
+          >
+            {installCores.isPending
+              ? 'Downloading cores…'
+              : `Download the ${missingCores.length === 1 ? 'missing core' : `${missingCores.length} missing cores`}`}
+          </Focusable>
+        )}
+        <Focusable
+          variant={status?.found && !canGetCores ? 'primary' : 'button'}
+          preferred={Boolean(status?.found) && !canGetCores}
+          disabled={working}
+          onPress={onNext}
+        >
+          {status?.found ? 'Continue' : 'Skip for now'}
         </Focusable>
-        <Focusable variant="button" onPress={recheck}>
+        <Focusable variant="button" disabled={working} onPress={recheck}>
           Check again
         </Focusable>
         {status && !status.found && (
