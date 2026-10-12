@@ -14,18 +14,28 @@
   --text: var(--romm-light);
   --text-muted: var(--romm-lavender);
   --danger: #ff8f8f;
+  --ok: #9be2a8;
 
   color-scheme: dark;
   font-family: 'Segoe UI', system-ui, sans-serif;
-  font-size: 16px;
+  /* Everything is sized in rem, so the whole UI scales with the screen: about 20px on a
+     1080p TV and 40px on a 4K one, which keeps text readable from a couch on both. */
+  font-size: clamp(14px, 1.05vw, 44px);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
+  overflow: hidden;
   background: var(--surface-0);
   color: var(--text);
 }
@@ -37,6 +47,16 @@ input {
 }
 
 :focus-visible {
-  outline: 3px solid var(--romm-peach);
-  outline-offset: 2px;
+  outline: 0.2rem solid var(--romm-peach);
+  outline-offset: 0.15rem;
+}
+
+::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 0.25rem;
+  background: var(--border);
 }
