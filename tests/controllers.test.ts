@@ -132,7 +132,11 @@ describe('buildControllerSettings', () => {
 });
 
 describe('ControllerDetector', () => {
-  const install = { executablePath: '/ra/retroarch', workingDir: '/ra' } as RetroArchInstall;
+  const install = {
+    executablePath: '/ra/retroarch',
+    workingDir: '/ra',
+    dataDir: '/ra',
+  } as RetroArchInstall;
 
   it('waits for the first detection and runs one at a time', async () => {
     let finish: (controllers: DetectedController[]) => void = () => {};

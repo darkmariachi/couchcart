@@ -14,7 +14,11 @@ import {
   type LaunchServiceDeps,
   type LaunchableRom,
 } from '../src/main/launcher/launchService';
-import { parseSteamLibraryFolders, type RetroArchInstall } from '../src/main/launcher/retroarch';
+import {
+  describeInstall,
+  parseSteamLibraryFolders,
+  type RetroArchInstall,
+} from '../src/main/launcher/retroarch';
 import { DataPaths, safeSegment } from '../src/main/paths';
 import { defaultSettings, type Settings } from '../src/main/settings/schema';
 
@@ -224,6 +228,7 @@ describe('LaunchService', () => {
   const install: RetroArchInstall = {
     executablePath: '/opt/retroarch/retroarch',
     workingDir: '/opt/retroarch',
+    dataDir: '/opt/retroarch',
     coresDir: '/opt/retroarch/cores',
     systemDir: '/opt/retroarch/system',
     kind: 'standalone',
@@ -530,5 +535,69 @@ describe('LaunchService', () => {
       await expect(service.deleteLocal(rom.id)).rejects.toMatchObject({ code: 'busy' });
       expect(existsSync(romPath())).toBe(true);
     });
+  });
+});
+
+describe('describeInstall', () => {
+  let home: string;
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'couchcart-home-'));
+  });
+  afterEach(() => rmSync(home, { recursive: true, force: true }));
+
+  it('keeps everything next to the executable for a portable or Steam install', () => {
+    const root = join(home, 'SteamLibrary', 'steamapps', 'common', 'RetroArch');
+    mkdirSync(join(root, 'cores'), { recursive: true });
+
+    const install = describeInstall(join(root, 'retroarch'), null, home);
+
+    expect(install).toMatchObject({
+      kind: 'steam',
+      workingDir: root,
+      dataDir: root,
+      coresDir: join(root, 'cores'),
+      systemDir: join(root, 'system'),
+    });
+  });
+
+  it('uses the config folder in the home directory for a Linux package install', () => {
+    const install = describeInstall('/usr/bin/retroarch', null, home);
+
+    expect(install).toMatchObject({
+      kind: 'standalone',
+      dataDir: join(home, '.config', 'retroarch'),
+      coresDir: join(home, '.config', 'retroarch', 'cores'),
+    });
+  });
+
+  it('follows the folders a package install names in retroarch.cfg', () => {
+    const config = join(home, '.config', 'retroarch');
+    mkdirSync(config, { recursive: true });
+    writeFileSync(
+      join(config, 'retroarch.cfg'),
+      ['libretro_directory = "/usr/lib/libretro"', 'system_directory = "~/bios"', ''].join('\n'),
+    );
+
+    const install = describeInstall('/usr/bin/retroarch', null, home);
+
+    expect(install.coresDir).toBe('/usr/lib/libretro');
+    expect(install.systemDir).toBe(join(home, 'bios'));
+  });
+
+  it('uses the Flatpak data folder for a Flatpak install', () => {
+    const install = describeInstall(
+      '/var/lib/flatpak/exports/bin/org.libretro.RetroArch',
+      null,
+      home,
+    );
+
+    expect(install.dataDir).toBe(
+      join(home, '.var', 'app', 'org.libretro.RetroArch', 'config', 'retroarch'),
+    );
+    expect(install.coresDir).toBe(join(install.dataDir, 'cores'));
+  });
+
+  it('lets the cores folder from settings win', () => {
+    expect(describeInstall('/usr/bin/retroarch', '/my/cores', home).coresDir).toBe('/my/cores');
   });
 });

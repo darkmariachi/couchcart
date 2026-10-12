@@ -16,7 +16,9 @@
     "api:types": "openapi-typescript docs/romm-openapi.json -o src/main/romm/schema.d.ts",
     "icon": "node scripts/make-icon.mjs",
     "dist": "electron-vite build && electron-builder --win --publish never",
-    "notices": "node scripts/third-party-notices.mjs"
+    "notices": "node scripts/third-party-notices.mjs",
+    "format:check": "prettier --check .",
+    "dist:linux": "electron-vite build && electron-builder --linux --publish never"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -47,5 +49,11 @@
     "zustand": "^5.0.15"
   },
   "author": "Couchcart contributors",
-  "license": "MIT"
+  "license": "MIT",
+  "homepage": "https://github.com/darkmariachi/couchcart",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/darkmariachi/couchcart.git"
+  },
+  "desktopName": "couchcart.desktop"
 }

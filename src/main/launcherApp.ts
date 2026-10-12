@@ -977,7 +977,7 @@ export class LauncherApp {
     if (!install) return [];
     const roms: SimpleRom[] = [];
     for await (const rom of this.requireConnection().client.iterateRoms()) roms.push(rom);
-    const sourceDirs = await readRetroArchSaveDirs(install.workingDir);
+    const sourceDirs = await readRetroArchSaveDirs(install.dataDir);
     return findImportCandidates(sourceDirs, roms, this.paths);
   }
 

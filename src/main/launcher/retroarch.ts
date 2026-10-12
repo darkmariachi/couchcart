@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { delimiter, dirname, join } from 'node:path';
+import { delimiter, dirname, isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -10,6 +10,8 @@ export interface RetroArchInstall {
   executablePath: string;
   /** Folder RetroArch must be started from (the Steam build needs this, see launch()). */
   workingDir: string;
+  /** Folder holding retroarch.cfg and, by default, its saves, cores and BIOS files. */
+  dataDir: string;
   coresDir: string;
   systemDir: string;
   /** The Steam build installs cores as DLC and has no Online Updater for them. */
@@ -41,7 +43,11 @@ async function findSteamRoots(): Promise<string[]> {
     }
     return roots;
   }
-  return [join(homedir(), '.steam', 'steam'), join(homedir(), '.local', 'share', 'Steam')];
+  return [
+    join(homedir(), '.steam', 'steam'),
+    join(homedir(), '.local', 'share', 'Steam'),
+    join(homedir(), '.var', 'app', 'com.valvesoftware.Steam', '.local', 'share', 'Steam'),
+  ];
 }
 
 async function steamCandidates(): Promise<string[]> {
@@ -71,23 +77,69 @@ function standaloneCandidates(): string[] {
       join(env['ProgramFiles'] ?? 'C:\\Program Files', 'RetroArch', 'retroarch.exe'),
     ];
   }
-  return (process.env['PATH'] ?? '')
+  const onPath = (process.env['PATH'] ?? '')
     .split(delimiter)
     .filter(Boolean)
     .map((dir) => join(dir, 'retroarch'));
+  // Flatpak (the usual install on a Steam Deck) exports a launcher script per app.
+  const flatpak = [
+    join(homedir(), '.local', 'share', 'flatpak', 'exports', 'bin', FLATPAK_ID),
+    join('/var/lib/flatpak/exports/bin', FLATPAK_ID),
+  ];
+  return [...onPath, ...flatpak];
 }
 
-function describeInstall(executablePath: string, coresDirOverride: string | null) {
+const FLATPAK_ID = 'org.libretro.RetroArch';
+
+/**
+ * Where an install keeps retroarch.cfg and, unless the config says otherwise, its cores
+ * and BIOS files. A portable or Steam install keeps them next to the executable; a Linux
+ * package install uses ~/.config/retroarch, and a Flatpak its own folder under ~/.var/app.
+ */
+function dataRootFor(executablePath: string, home: string): string {
+  const root = dirname(executablePath);
+  if (existsSync(join(root, 'cores'))) return root;
+  if (executablePath.endsWith(FLATPAK_ID)) {
+    return join(home, '.var', 'app', FLATPAK_ID, 'config', 'retroarch');
+  }
+  return join(home, '.config', 'retroarch');
+}
+
+/** A folder named in retroarch.cfg, or null when the setting is absent or left at its default. */
+function configuredDir(config: string, key: string, home: string): string | null {
+  const value = new RegExp(`^${key}\\s*=\\s*"(.*)"\\s*$`, 'm').exec(config)?.[1];
+  if (!value || value === 'default') return null;
+  if (value.startsWith('~')) return join(home, value.slice(1));
+  return isAbsolute(value) ? value : null;
+}
+
+export function describeInstall(
+  executablePath: string,
+  coresDirOverride: string | null,
+  home: string = homedir(),
+) {
   const root = dirname(executablePath);
   const kind = /[\\/]steamapps[\\/]common[\\/]/i.test(executablePath) ? 'steam' : 'standalone';
-  // A portable or Steam install keeps everything next to the executable; a Linux package
-  // install keeps user data under ~/.config/retroarch instead.
-  const dataRoot = existsSync(join(root, 'cores')) ? root : join(homedir(), '.config', 'retroarch');
+  const dataRoot = dataRootFor(executablePath, home);
+  let config = '';
+  if (dataRoot !== root) {
+    // Distribution packages often keep cores outside the config folder (/usr/lib/libretro,
+    // for one) and say so in retroarch.cfg.
+    try {
+      config = readFileSync(join(dataRoot, 'retroarch.cfg'), 'utf8');
+    } catch {
+      // RetroArch has not been started yet, so there is no config to read.
+    }
+  }
   return {
     executablePath,
     workingDir: root,
-    coresDir: coresDirOverride ?? join(dataRoot, 'cores'),
-    systemDir: join(dataRoot, 'system'),
+    dataDir: dataRoot,
+    coresDir:
+      coresDirOverride ??
+      configuredDir(config, 'libretro_directory', home) ??
+      join(dataRoot, 'cores'),
+    systemDir: configuredDir(config, 'system_directory', home) ?? join(dataRoot, 'system'),
     kind,
   } as const;
 }

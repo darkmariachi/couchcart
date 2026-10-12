@@ -35,5 +35,11 @@ portable:
 linux:
   icon: build/icon.png
   category: Game
+  executableName: couchcart
+  synopsis: Couch-friendly launcher for RomM libraries
+  artifactName: Couchcart-${version}-${arch}.${ext}
   target:
-    - AppImage
+    - target: AppImage
+      arch: [x64]
+    - target: tar.gz
+      arch: [x64]

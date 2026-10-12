@@ -1,31 +1,89 @@
-# Couchcart
+<div align="center">
+  <img src="build/icon.png" height="140" width="140" alt="Couchcart logo">
 
-A couch-friendly desktop launcher for a self-hosted [RomM](https://romm.app) library. Browse your
-games with a controller, press Play, and carry on from the same save on any PC.
+  <h1>Couchcart</h1>
+
+  <h3>Your RomM library, on the couch, with a controller.</h3>
+
+  <p>
+    <a href="https://github.com/darkmariachi/couchcart/actions/workflows/ci.yml"><img src="https://github.com/darkmariachi/couchcart/actions/workflows/ci.yml/badge.svg" alt="Checks"></a>
+    <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-2ec4b6" alt="Windows and Linux">
+    <img src="https://img.shields.io/badge/RomM-5.x-2ec4b6" alt="RomM 5.x">
+    <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-2ec4b6" alt="MIT licence"></a>
+  </p>
+</div>
+
+# Overview
+
+Couchcart is a desktop launcher for a self-hosted [RomM](https://romm.app) library, made for a TV
+and a gamepad. Pick a game, press Play, and carry on from the same save on any PC.
 
 It is a launcher and save-sync client. [RetroArch](https://www.retroarch.com) does all the
-emulation and has to be installed separately; the launcher bundles no emulator, no cores and no
+emulation and has to be installed separately; Couchcart bundles no emulator, no cores and no
 games.
 
-## What it does
+<p align="center">
+  <img src="docs/screenshots/home.jpg" alt="The home screen: continue playing, recently added, platforms and collections" width="1000">
+</p>
 
-- Browses your RomM platforms, collections and favourites with cover art, by gamepad, keyboard
-  or mouse, in an interface made for a TV.
-- Searches your whole library.
-- Downloads a game the first time you play it and starts it in RetroArch with a suitable core.
-- Syncs saves and save states with RomM before a game starts and after it exits.
-- Keeps working offline for games that are already downloaded, and uploads progress later.
+## Features
+
+- Browse platforms, collections and favourites with cover art, by gamepad, keyboard or mouse
+- Search the whole library, with games suggested as you type
+- Press Play: the game downloads the first time and starts in RetroArch with a suitable core
+- Saves and save states sync with RomM before a game starts and after it exits, with backups
+  and a prompt instead of an overwrite when two PCs disagree
+- Sign in by scanning a QR code or entering a short code, so no password is typed with a gamepad
+- Controllers are assigned to players for you, even when a keyboard pretends to be a gamepad
+- Keeps working offline for downloaded games, and uploads progress later
+- Runs from Steam Big Picture as a non-Steam game
+- No telemetry, no account besides your own RomM server
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/grid.jpg" alt="A platform's games as a grid of covers"></td>
+    <td width="50%"><img src="docs/screenshots/game.jpg" alt="A game's page with Play, Download, favourites and save status"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>A platform, filtered and sorted with X and Y</sub></td>
+    <td align="center"><sub>A game's page, with its save status</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/search.jpg" alt="The on-screen keyboard suggesting games while typing"></td>
+    <td><img src="docs/screenshots/settings.jpg" alt="Settings, starting with the controller assignment"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Search suggests games as you type</sub></td>
+    <td align="center"><sub>Settings, all reachable with a controller</sub></td>
+  </tr>
+</table>
+
+## Contents
+
+- [Requirements](#requirements) · [Install](#install) · [First run](#first-run) ·
+  [Controls](#controls)
+- [Library](#library) · [Controllers](#controllers) · [Saves](#saves) ·
+  [Downloaded games](#downloaded-games)
+- [Adding it to Steam](#adding-it-to-steam) · [Settings](#settings) ·
+  [Where things are stored](#where-things-are-stored) · [Troubleshooting](#troubleshooting)
+- [Relationship to other projects](#relationship-to-other-projects) ·
+  [Development](#development)
 
 ## Requirements
 
 - A RomM server, version 5.x. Developed against 5.4.0.
-- RetroArch, either the standalone build or the Steam version, with a core installed for each
-  platform you want to play.
-- Windows 10 or 11. Linux runs from source but is not packaged yet.
+- RetroArch, with a core installed for each platform you want to play. The standalone build,
+  the Steam version and, on Linux, a distribution package or the Flatpak are all found
+  automatically.
+- Windows 10 or 11, or 64-bit Linux.
 
 ## Install
 
-Download one of the two files from a release, or build them yourself (see [Building](#building)):
+Download a file from a release, or build it yourself (see [Building](#building)).
+
+**Windows**
 
 - `Couchcart-<version>-setup.exe` installs for the current user and adds a Start menu entry.
 - `Couchcart-<version>-portable.exe` runs without installing.
@@ -33,7 +91,17 @@ Download one of the two files from a release, or build them yourself (see [Build
 The builds are not code-signed, so Windows SmartScreen shows a warning the first time. Choose
 "More info", then "Run anyway".
 
-Both builds, and a development run, use the same data folder, so you can switch between them
+**Linux**
+
+- `Couchcart-<version>-x86_64.AppImage`: make it executable (`chmod +x`) and run it.
+- `Couchcart-<version>-x64.tar.gz`: unpack anywhere and run `couchcart` inside.
+
+The Linux build is new and has had far less use than the Windows one. Your session is stored
+through the desktop keyring (GNOME Keyring, KWallet or another Secret Service provider). Without
+one, Couchcart still works but asks you to sign in again each time it starts, rather than write
+a token to disk unprotected.
+
+All builds, and a development run, use the same data folder, so you can switch between them
 without setting anything up again.
 
 ## First run
@@ -43,8 +111,10 @@ The setup wizard asks for:
 1. **Your RomM address**, for example `https://romm.example.lan`. "Find my server" looks for
    RomM on your network, on its default port (8080). A server on another port, or behind a web
    address, has to be typed in.
-2. **Your RomM username and password.** Only a session token is stored, encrypted by Windows.
-   The password is never saved.
+2. **Signing in.** Couchcart shows a QR code and a short code. Scan it, or open the address
+   shown on a phone or computer where you are already signed in to RomM, and approve the request
+   there. "Sign in with a password instead" is the fallback. Either way only a session token is
+   stored, encrypted by the operating system; a password is never saved.
 3. **RetroArch.** It is found automatically in the usual places, including Steam libraries. The
    wizard lists each platform in your library and whether a core for it is installed.
 4. **Where to keep downloaded games**, with the free space on that drive.
@@ -244,7 +314,9 @@ Some systems (PlayStation, Saturn, Sega CD, Dreamcast and others) need BIOS file
 for cores that can run without one.
 
 **"RetroArch was not found."**
-Install it, or point the launcher at `retroarch.exe` in Settings → RetroArch.
+Install it, or point the launcher at the RetroArch program (`retroarch.exe` on Windows) in
+Settings → RetroArch. On Linux, a RetroArch that keeps its cores somewhere unusual may also need
+the cores folder set there.
 
 **A game shows "Not synced" or "Save conflict".**
 "Not synced" clears by itself once the server is reachable; "Sync saves" on the game's page tries
@@ -255,7 +327,8 @@ Sessions created by an older version of the launcher were not given access to co
 Sign out from the menu and sign in again.
 
 **I got signed out.**
-RomM sessions expire after about a week without use. Sign in again; nothing local is lost.
+A password sign-in expires after about a week without use; signing in with a code does not
+expire that way. Sign in again; nothing local is lost.
 
 **A cover is missing or outdated.**
 Covers are saved the first time they are shown. Delete the `covers` folder to fetch them again.
@@ -290,7 +363,9 @@ npm run dev
 | `npm run build`                      | Build main, preload and renderer into `out/`         |
 | `npm test`                           | Unit tests (Vitest; RomM is faked with msw)          |
 | `npm run typecheck` / `npm run lint` | Static checks                                        |
+| `npm run format:check`               | Check formatting (`npm run format` fixes it)         |
 | `npm run dist`                       | Build the Windows installer and portable executable  |
+| `npm run dist:linux`                 | Build the Linux AppImage and tar.gz                  |
 | `npm run api:fetch -- <url>`         | Download the OpenAPI spec from a RomM instance       |
 | `npm run api:types`                  | Regenerate `src/main/romm/schema.d.ts` from the spec |
 | `npm run icon`                       | Regenerate `build/icon.png`                          |
@@ -298,11 +373,29 @@ npm run dev
 
 ### Building
 
+On Windows:
+
 ```bash
 npm run dist
 ```
 
-The installer and the portable executable are written to `dist/`.
+On Linux:
+
+```bash
+npm run dist:linux
+```
+
+The files are written to `dist/`.
+
+### Checks and releases
+
+Two GitHub Actions workflows live in `.github/workflows`:
+
+- **Checks** runs formatting, types, lint, tests and a build on Windows and Linux for every push
+  to `main` and every pull request.
+- **Build installers** builds the Windows and Linux files. Run it by hand from the Actions tab
+  to get them as a downloadable artifact, or push a tag such as `v0.2.0` to also create a draft
+  release with the files attached.
 
 ### Layout
 
