@@ -140,6 +140,11 @@ export class RommClient {
     return unwrap(await this.api.GET('/api/states', { params: { query: { rom_id: romId } } }));
   }
 
+  async listDevices(): Promise<{ id: string; name: string | null }[]> {
+    const devices = unwrap(await this.api.GET('/api/devices'));
+    return devices.map((device) => ({ id: device.id, name: device.name }));
+  }
+
   /** Records "last played: now" for the current user. */
   async markPlayed(romId: number): Promise<void> {
     unwrap(

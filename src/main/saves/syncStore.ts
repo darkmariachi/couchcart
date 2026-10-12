@@ -29,6 +29,10 @@ const SCHEMA = `
     rom_id INTEGER PRIMARY KEY,
     report TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS library_cache (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
 `;
 
 /**
@@ -57,7 +61,9 @@ export class SyncStore {
     if (current?.['value'] === account) return;
     this.db.exec('BEGIN');
     try {
-      this.db.exec('DELETE FROM sync_records; DELETE FROM rom_sync_reports;');
+      this.db.exec(
+        'DELETE FROM sync_records; DELETE FROM rom_sync_reports; DELETE FROM library_cache;',
+      );
       this.db
         .prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('account', ?)")
         .run(account);
@@ -121,8 +127,41 @@ export class SyncStore {
     return row ? (JSON.parse(String(row['report'])) as SyncReport) : null;
   }
 
+  /** ROMs this PC has synced at least one file for. */
+  listRomIdsWithRecords(): number[] {
+    return this.db
+      .prepare('SELECT DISTINCT rom_id FROM sync_records')
+      .all()
+      .map((row) => Number(row['rom_id']));
+  }
+
+  /** Last sync status of every ROM that has one. */
+  listReportStatuses(): Map<number, SyncReport['status']> {
+    const statuses = new Map<number, SyncReport['status']>();
+    for (const row of this.db.prepare('SELECT rom_id, report FROM rom_sync_reports').all()) {
+      const report = JSON.parse(String(row['report'])) as SyncReport;
+      statuses.set(Number(row['rom_id']), report.status);
+    }
+    return statuses;
+  }
+
+  /**
+   * Library data from the last time the server answered, so browsing and playing
+   * downloaded games still work when it does not.
+   */
+  putCache(key: string, value: unknown): void {
+    this.db
+      .prepare('INSERT OR REPLACE INTO library_cache (key, value) VALUES (?, ?)')
+      .run(key, JSON.stringify(value));
+  }
+
+  getCache<T>(key: string): T | null {
+    const row = this.db.prepare('SELECT value FROM library_cache WHERE key = ?').get(key);
+    return row ? (JSON.parse(String(row['value'])) as T) : null;
+  }
+
   close(): void {
-    this.db.close();
+    if (this.db.isOpen) this.db.close();
   }
 }
 

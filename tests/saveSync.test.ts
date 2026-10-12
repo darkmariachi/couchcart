@@ -121,6 +121,10 @@ class FakeRemote implements SaveSyncRemote {
     return state;
   }
 
+  async listDevices() {
+    return [{ id: 'device-other-pc', name: 'LIVINGROOM-PC' }];
+  }
+
   async downloadState(id: number) {
     this.check();
     const state = this.states.find((candidate) => candidate.id === id);
@@ -295,6 +299,18 @@ describe('conflicts', () => {
     expect(localSave()).toBe('v2-this-pc');
     expect(remote.currentSave?.content.toString()).toBe('v2-other-pc');
     expect(remote.uploads).toHaveLength(1); // only the original v1
+  });
+
+  it('describe both sides so the user can choose', async () => {
+    remote.addSave('v3-other-pc', { origin_device_id: 'device-other-pc' });
+
+    const item = itemFor((await sync()).items, SAVE);
+
+    expect(item?.conflict).toEqual({
+      localModifiedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      serverUpdatedAt: remote.currentSave?.updated_at,
+      serverDevice: 'LIVINGROOM-PC',
+    });
   });
 
   it('stay a conflict on every later sync until resolved', async () => {

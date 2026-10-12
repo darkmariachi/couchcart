@@ -1,6 +1,12 @@
-import { rm } from 'node:fs/promises';
+import { rm, stat } from 'node:fs/promises';
 import { join, parse } from 'node:path';
-import type { ConflictResolution, SyncItemResult, SyncKind, SyncReport } from '../../shared/ipc';
+import type {
+  ConflictDetail,
+  ConflictResolution,
+  SyncItemResult,
+  SyncKind,
+  SyncReport,
+} from '../../shared/ipc';
 import { LauncherError } from '../errors';
 import { writeFileAtomicSync } from '../fs/atomic';
 import { log } from '../logging/logger';
@@ -34,6 +40,12 @@ export interface SaveSyncRemote {
   uploadState(upload: FileUpload & { romId: number; emulator: string | null }): Promise<State>;
   replaceState(id: number, upload: FileUpload): Promise<State>;
   downloadState(id: number): Promise<Buffer>;
+  listDevices(): Promise<{ id: string; name: string | null }[]>;
+}
+
+/** A server file plus what is only needed to describe it to the user. */
+interface RemoteEntry extends RemoteFile {
+  originDeviceId: string | null;
 }
 
 export interface SaveSyncDeps {
@@ -53,7 +65,7 @@ interface FileContext {
   baseName: string;
   key: SyncKey;
   path: string;
-  remote: RemoteFile | null;
+  remote: RemoteEntry | null;
   emulator: string | null;
   deviceId: string | null;
 }
@@ -69,6 +81,16 @@ export class SaveSyncService {
 
   getLastReport(romId: number): SyncReport | null {
     return this.deps.store.getReport(romId);
+  }
+
+  /** Whether this PC holds any save data (or sync history) for the game. */
+  async hasSyncableData(rom: SyncableRom): Promise<boolean> {
+    const baseName = parse(rom.fs_name).name;
+    for (const kind of ['save', 'state'] as const) {
+      if (this.deps.store.listFileNames(rom.id, kind).length > 0) return true;
+      if ((await listLocalFiles(this.dirFor(rom, kind), baseName, kind)).length > 0) return true;
+    }
+    return false;
   }
 
   /** Never throws: problems are described in the returned report. */
@@ -195,6 +217,9 @@ export class SaveSyncService {
           action: decision.action,
           outcome,
           detail: decision.reason,
+          ...(outcome === 'conflict' && {
+            conflict: await this.describeConflict(remote, context),
+          }),
         },
         offline: false,
       };
@@ -212,6 +237,24 @@ export class SaveSyncService {
         offline: error instanceof NetworkError,
       };
     }
+  }
+
+  /** Gathers what helps the user choose a side. Never fails the sync itself. */
+  private async describeConflict(
+    remote: SaveSyncRemote,
+    context: FileContext,
+  ): Promise<ConflictDetail> {
+    const localModifiedAt = await stat(context.path)
+      .then((info) => info.mtime.toISOString())
+      .catch(() => null);
+
+    let serverDevice: string | null = null;
+    const deviceId = context.remote?.originDeviceId;
+    if (deviceId) {
+      const devices = await remote.listDevices().catch(() => []);
+      serverDevice = devices.find((device) => device.id === deviceId)?.name ?? null;
+    }
+    return { localModifiedAt, serverUpdatedAt: context.remote?.updatedAt ?? null, serverDevice };
   }
 
   private async apply(
@@ -367,8 +410,8 @@ export class SaveSyncService {
     rom: SyncableRom,
     baseName: string,
     kind: SyncKind,
-  ): Promise<Map<string, RemoteFile>> {
-    const candidates: { localName: string; file: RemoteFile }[] = [];
+  ): Promise<Map<string, RemoteEntry>> {
+    const candidates: { localName: string; file: RemoteEntry }[] = [];
 
     if (kind === 'save') {
       for (const save of await remote.listSaves(rom.id)) {
@@ -376,19 +419,24 @@ export class SaveSyncService {
         const localName = `${baseName}.${save.file_extension.replace(/^\./, '')}`;
         candidates.push({
           localName,
-          file: { id: save.id, hash: save.content_hash ?? null, updatedAt: save.updated_at },
+          file: {
+            id: save.id,
+            hash: save.content_hash ?? null,
+            updatedAt: save.updated_at,
+            originDeviceId: save.origin_device_id ?? null,
+          },
         });
       }
     } else {
       for (const state of await remote.listStates(rom.id)) {
         candidates.push({
           localName: state.file_name,
-          file: { id: state.id, hash: null, updatedAt: state.updated_at },
+          file: { id: state.id, hash: null, updatedAt: state.updated_at, originDeviceId: null },
         });
       }
     }
 
-    const current = new Map<string, RemoteFile>();
+    const current = new Map<string, RemoteEntry>();
     for (const { localName, file } of candidates) {
       if (!belongsToGame(localName, baseName, kind)) continue;
       const existing = current.get(localName);
