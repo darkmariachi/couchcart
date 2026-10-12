@@ -24,7 +24,9 @@ export function Screen({ title, subtitle, children, ready = true, restoreFocusKe
         <h1 className={styles.title}>{title}</h1>
         {subtitle && <div className={styles.subtitle}>{subtitle}</div>}
       </header>
-      <div className={styles.content}>{children}</div>
+      <div className={styles.content} data-scroll-container="">
+        {children}
+      </div>
     </div>
   );
 }

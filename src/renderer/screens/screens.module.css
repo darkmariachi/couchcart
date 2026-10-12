@@ -50,19 +50,6 @@
   margin-bottom: 1rem;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: 1.2rem 1rem;
-  padding: 0.6rem;
-}
-
-/* Lets the browser skip layout and paint for cards far outside the viewport. */
-.gridItem {
-  content-visibility: auto;
-  contain-intrinsic-size: 11rem 17rem;
-}
-
 /* ---------- Game detail ---------- */
 
 .detail {

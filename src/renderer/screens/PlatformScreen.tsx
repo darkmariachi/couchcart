@@ -6,6 +6,7 @@ import { GameCard } from '../components/GameCard';
 import { OnScreenKeyboard } from '../components/OnScreenKeyboard';
 import { Screen } from '../components/Screen';
 import ui from '../components/ui.module.css';
+import { VirtualGrid } from '../components/VirtualGrid';
 import { usePlatformRoms, usePlatforms } from '../hooks';
 import { useControls } from '../input/controls';
 import { focusFirst, focusedElement } from '../input/focus';
@@ -19,6 +20,8 @@ const SORT_LABELS: Record<SortMode, string> = {
   added: 'Recently added',
 };
 const SORT_ORDER: SortMode[] = ['name', 'played', 'added'];
+
+const focusKeyOf = (rom: RomSummary) => `rom-${rom.id}`;
 
 function newestFirst(a: string | null, b: string | null): number {
   return (b ? Date.parse(b) : 0) - (a ? Date.parse(a) : 0);
@@ -78,6 +81,10 @@ export function PlatformScreen({ platformId }: { platformId: number }) {
     if (target && target.id !== platformId) replace({ name: 'platform', platformId: target.id });
   };
 
+  // Returning from a game page puts focus back on that game's card, which the grid has to
+  // scroll to first; anything else (a toolbar button) the screen restores itself.
+  const cameFromGame = entry.focusKey?.startsWith('rom-') ?? false;
+
   const cycleSort = () =>
     setSort(SORT_ORDER[(SORT_ORDER.indexOf(sort) + 1) % SORT_ORDER.length] ?? 'name');
 
@@ -99,7 +106,7 @@ export function PlatformScreen({ platformId }: { platformId: number }) {
       title={platform?.name ?? 'Games'}
       subtitle={roms.data ? `${games.length} of ${roms.data.length} games` : undefined}
       ready={roms.isSuccess}
-      restoreFocusKey={entry.focusKey}
+      restoreFocusKey={cameFromGame ? null : entry.focusKey}
     >
       <div className={styles.toolbar}>
         <Focusable variant="button" focusKey="tool-search" onPress={() => setSearching(true)}>
@@ -128,18 +135,19 @@ export function PlatformScreen({ platformId }: { platformId: number }) {
         <p className={ui.muted}>No games match. Clear the search or change the filter.</p>
       )}
 
-      <div className={styles.grid}>
-        {games.map((rom, position) => (
-          <div key={rom.id} className={styles.gridItem}>
-            <GameCard
-              rom={rom}
-              focusKey={`rom-${rom.id}`}
-              preferred={position === 0}
-              onOpen={(romId) => push({ name: 'game', romId })}
-            />
-          </div>
-        ))}
-      </div>
+      <VirtualGrid
+        items={games}
+        keyOf={focusKeyOf}
+        initialFocusKey={cameFromGame ? entry.focusKey : null}
+        renderItem={(rom, isFirst) => (
+          <GameCard
+            rom={rom}
+            focusKey={focusKeyOf(rom)}
+            preferred={isFirst}
+            onOpen={(romId) => push({ name: 'game', romId })}
+          />
+        )}
+      />
 
       {searching && (
         <OnScreenKeyboard
