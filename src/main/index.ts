@@ -24,6 +24,12 @@ const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
 const rendererFile = join(__dirname, '../renderer/index.html');
 const rendererOrigin = devServerUrl ?? pathToFileURL(rendererFile).href;
 
+// The data folder is fixed by name, so the installed app, the portable build and a
+// development run all share one library, session and set of saves.
+if (!process.argv.some((argument) => argument.startsWith('--user-data-dir'))) {
+  app.setPath('userData', join(app.getPath('appData'), 'romm-launcher'));
+}
+
 // Must happen before the app is ready. "standard" gives the scheme normal URL parsing and
 // "secure" lets a page with a strict CSP load images from it.
 protocol.registerSchemesAsPrivileged([
