@@ -18,7 +18,7 @@
     "dist": "electron-vite build && electron-builder --win --publish never",
     "notices": "node scripts/third-party-notices.mjs",
     "format:check": "prettier --check .",
-    "dist:linux": "electron-vite build && electron-builder --linux --publish never",
+    "dist:linux": "chmod +x node_modules/7zip-bin/linux/x64/7za && electron-vite build && electron-builder --linux --publish never",
     "steam-art": "electron scripts/make-steam-art.mjs"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
-import { mkdir, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
+import { chmod, mkdir, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -50,6 +50,9 @@ export function canSetUpRetroArch(
 export function createExtractor(sevenZipPath: string): Extract {
   return async (archive, destination, only) => {
     await mkdir(destination, { recursive: true });
+    // npm does not keep the program's executable flag on Linux. The packaged copy is made
+    // executable at build time; this covers a run from source.
+    if (process.platform !== 'win32') await chmod(sevenZipPath, 0o755).catch(() => undefined);
     // "e" drops folder names, so a file named in `only` cannot land outside `destination`.
     const args = only
       ? ['e', '-y', `-o${destination}`, archive, only]
