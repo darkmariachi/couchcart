@@ -20,7 +20,7 @@ describe('SettingsStore', () => {
     const store = new SettingsStore(file(), 'LIVINGROOM-PC');
 
     expect(store.get()).toMatchObject({
-      version: 2,
+      version: 3,
       serverUrl: null,
       username: null,
       deviceName: 'LIVINGROOM-PC',
@@ -47,7 +47,7 @@ describe('SettingsStore', () => {
 
   it.each([
     ['corrupt JSON', '{ "version": 1, '],
-    ['a wrong shape', JSON.stringify({ version: 2, serverUrl: 42 })],
+    ['a wrong shape', JSON.stringify({ version: 3, serverUrl: 42 })],
     ['a newer version', JSON.stringify({ version: 99, somethingNew: true })],
   ])('falls back to defaults on %s and keeps the original for inspection', (_, content) => {
     writeFileSync(file(), content);
@@ -69,7 +69,7 @@ describe('SettingsStore', () => {
 
     const settings = new SettingsStore(file(), 'IGNORED').get();
 
-    expect(settings).toMatchObject({ ...v1, version: 2 });
+    expect(settings).toMatchObject({ ...v1, version: 3, deviceId: null, saveBackupCount: 10 });
     expect(settings.retroarch).toEqual({
       executablePath: null,
       coresDir: null,

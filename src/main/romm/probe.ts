@@ -141,6 +141,8 @@ async function contentHashAlgorithm(client: RommClient): Promise<Omit<ProbeFindi
     answer: match ?? 'None of md5 / sha1 / sha256 / crc32 of the raw file',
     evidence: [
       `content_hash has ${expected.length} hex characters`,
+      `sample save: rom_id=${sample.rom_id} file_name=${sample.file_name} emulator=${sample.emulator} slot=${sample.slot} origin_device=${sample.origin_device_id} device_syncs=${sample.device_syncs?.length ?? 0} updated_at=${sample.updated_at}`,
+      `all saves: ${saves.map((save) => `#${save.id} rom ${save.rom_id} ${save.file_name} slot=${save.slot} emu=${save.emulator}`).join(' | ')}`,
       `Compared against ${content.length} downloaded bytes of one save`,
     ],
   };

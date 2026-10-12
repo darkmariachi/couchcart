@@ -25,6 +25,20 @@ export interface RomListPage {
   total: number | null;
 }
 
+export interface FileUpload {
+  fileName: string;
+  content: Buffer;
+}
+
+export interface SaveUpload extends FileUpload {
+  romId: number;
+  slot: string;
+  emulator: string | null;
+  deviceId: string | null;
+  contentHash: string;
+  overwrite?: boolean;
+}
+
 interface ApiResult<T> {
   data?: T;
   error?: unknown;
@@ -121,6 +135,103 @@ export class RommClient {
 
   async listStates(romId?: number): Promise<State[]> {
     return unwrap(await this.api.GET('/api/states', { params: { query: { rom_id: romId } } }));
+  }
+
+  /** Registers this PC with RomM (or finds its existing registration) and returns its id. */
+  async registerDevice(device: {
+    name: string;
+    hostname: string;
+    platform: string;
+    clientVersion: string;
+  }): Promise<string> {
+    const created = unwrap(
+      await this.api.POST('/api/devices', {
+        body: {
+          name: device.name,
+          hostname: device.hostname,
+          platform: device.platform,
+          client: 'romm-launcher',
+          client_version: device.clientVersion,
+          // Reuse this PC's existing registration instead of creating a duplicate.
+          allow_existing: true,
+          allow_duplicate: false,
+          reset_syncs: false,
+        },
+      }),
+    );
+    return created.device_id;
+  }
+
+  /**
+   * Uploads a save as a new version in its slot. RomM answers 409 when the slot changed on
+   * the server since this device last synced it, unless `overwrite` is set.
+   */
+  async uploadSave(upload: SaveUpload): Promise<Save> {
+    const query = new URLSearchParams({ rom_id: String(upload.romId), slot: upload.slot });
+    if (upload.emulator) query.set('emulator', upload.emulator);
+    if (upload.deviceId) query.set('device_id', upload.deviceId);
+    query.set('content_hash', upload.contentHash);
+    if (upload.overwrite) query.set('overwrite', 'true');
+
+    return this.sendFile<Save>('POST', `/api/saves?${query}`, 'saveFile', upload);
+  }
+
+  async downloadSave(id: number, deviceId: string | null): Promise<Buffer> {
+    const query = deviceId ? `?${new URLSearchParams({ device_id: deviceId })}` : '';
+    return this.downloadFile(`/api/saves/${id}/content${query}`);
+  }
+
+  /** Tells RomM this device now holds the given save version. */
+  async confirmSaveDownloaded(id: number, deviceId: string, contentHash: string): Promise<void> {
+    unwrap(
+      await this.api.POST('/api/saves/{id}/downloaded', {
+        params: { path: { id } },
+        body: { device_id: deviceId, content_hash: contentHash },
+      }),
+    );
+  }
+
+  async uploadState(
+    upload: FileUpload & { romId: number; emulator: string | null },
+  ): Promise<State> {
+    const query = new URLSearchParams({ rom_id: String(upload.romId) });
+    if (upload.emulator) query.set('emulator', upload.emulator);
+    return this.sendFile<State>('POST', `/api/states?${query}`, 'stateFile', upload);
+  }
+
+  async replaceState(id: number, upload: FileUpload): Promise<State> {
+    return this.sendFile<State>('PUT', `/api/states/${id}`, 'stateFile', upload);
+  }
+
+  async downloadState(id: number): Promise<Buffer> {
+    return this.downloadFile(`/api/states/${id}/content`);
+  }
+
+  private async sendFile<T>(
+    method: 'POST' | 'PUT',
+    pathAndQuery: string,
+    field: string,
+    file: FileUpload,
+  ): Promise<T> {
+    const form = new FormData();
+    form.append(field, new Blob([new Uint8Array(file.content)]), file.fileName);
+    const response = await this.fetchRaw(pathAndQuery, { method, body: form });
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new RommApiError(
+        response.status,
+        describeErrorBody(body, `RomM returned HTTP ${response.status}.`),
+      );
+    }
+    return body as T;
+  }
+
+  private async downloadFile(pathAndQuery: string): Promise<Buffer> {
+    const response = await this.fetchRaw(pathAndQuery);
+    if (!response.ok) {
+      throw new RommApiError(response.status, `Download failed (HTTP ${response.status}).`);
+    }
+    return Buffer.from(await response.arrayBuffer());
   }
 
   /** Authenticated request for endpoints that return file content rather than JSON. */

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const CURRENT_SETTINGS_VERSION = 2;
+export const CURRENT_SETTINGS_VERSION = 3;
 
 const retroarchSchema = z.object({
   /** Null means "auto-detect"; set it to pin a specific install. */
@@ -17,6 +17,10 @@ export const settingsSchema = z.object({
   username: z.string().nullable(),
   /** Shown in RomM next to saves uploaded from this PC. */
   deviceName: z.string().min(1),
+  /** Id RomM assigned to this PC for the current account; null until first registered. */
+  deviceId: z.string().nullable(),
+  /** How many backups to keep per game in `save-backups`. */
+  saveBackupCount: z.number().int().min(1).max(1000),
   retroarch: retroarchSchema,
   /** Null means `<app data>/roms`. */
   cacheDir: z.string().nullable(),
@@ -35,6 +39,8 @@ const V2_ADDITIONS = {
   coreOverrides: { platforms: {}, games: {} },
 } satisfies Partial<Settings>;
 
+const V3_ADDITIONS = { deviceId: null, saveBackupCount: 10 } satisfies Partial<Settings>;
+
 export function defaultSettings(deviceName: string): Settings {
   return {
     version: CURRENT_SETTINGS_VERSION,
@@ -42,6 +48,7 @@ export function defaultSettings(deviceName: string): Settings {
     username: null,
     deviceName,
     ...structuredClone(V2_ADDITIONS),
+    ...V3_ADDITIONS,
   };
 }
 
@@ -51,6 +58,8 @@ type RawSettings = Record<string, unknown>;
 const MIGRATIONS: Record<number, (old: RawSettings) => RawSettings> = {
   // v2 added RetroArch, cache and core-override settings (Milestone 2).
   1: (v1) => ({ ...v1, ...structuredClone(V2_ADDITIONS), version: 2 }),
+  // v3 added the RomM device id and the save backup count (Milestone 3).
+  2: (v2) => ({ ...v2, ...V3_ADDITIONS, version: 3 }),
 };
 
 /**
