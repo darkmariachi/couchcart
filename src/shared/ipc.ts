@@ -68,6 +68,23 @@ export interface ProbeFinding {
   evidence: string[];
 }
 
+export interface RetroArchStatus {
+  found: boolean;
+  executablePath: string | null;
+  kind: 'steam' | 'standalone' | null;
+  version: string | null;
+  coresDir: string | null;
+  installedCores: string[];
+}
+
+export type LaunchState =
+  | { phase: 'idle' }
+  | { phase: 'downloading'; romId: number; receivedBytes: number; totalBytes: number }
+  | { phase: 'starting'; romId: number }
+  | { phase: 'running'; romId: number; core: string; startedAt: string }
+  | { phase: 'exited'; romId: number; exitCode: number | null; playedSeconds: number }
+  | { phase: 'failed'; romId: number; error: IpcErrorInfo };
+
 export interface IpcContract {
   'server:probe': { request: string; response: ServerInfo };
   'auth:status': { request: undefined; response: AuthStatus };
@@ -77,6 +94,15 @@ export interface IpcContract {
   'library:roms': { request: RomQuery; response: RomPage };
   'library:romAssets': { request: number; response: RomAssets };
   'debug:apiProbe': { request: undefined; response: ProbeFinding[] };
+  'retroarch:status': { request: undefined; response: RetroArchStatus };
+  /** Resolves once RetroArch is running; later changes arrive as `game:stateChanged`. */
+  'game:play': { request: number; response: undefined };
+  'game:state': { request: undefined; response: LaunchState };
+}
+
+/** Pushed from main to renderer, without a request. */
+export interface IpcEvents {
+  'game:stateChanged': LaunchState;
 }
 
 export type IpcChannel = keyof IpcContract;
@@ -84,7 +110,18 @@ export type IpcRequest<C extends IpcChannel> = IpcContract[C]['request'];
 export type IpcResponse<C extends IpcChannel> = IpcContract[C]['response'];
 
 export type IpcErrorCode =
-  'not_authenticated' | 'session_expired' | 'network' | 'api' | 'invalid_input' | 'internal';
+  | 'not_authenticated'
+  | 'session_expired'
+  | 'network'
+  | 'api'
+  | 'invalid_input'
+  | 'retroarch_not_found'
+  | 'core_missing'
+  | 'unsupported_rom'
+  | 'busy'
+  | 'download_failed'
+  | 'launch_failed'
+  | 'internal';
 
 export interface IpcErrorInfo {
   code: IpcErrorCode;
@@ -115,4 +152,11 @@ export interface LauncherApi {
     romAssets: Call<'library:romAssets'>;
   };
   debug: { apiProbe: Call<'debug:apiProbe'> };
+  retroarch: { status: Call<'retroarch:status'> };
+  game: {
+    play: Call<'game:play'>;
+    state: Call<'game:state'>;
+    /** Returns a function that removes the listener. */
+    onStateChanged: (listener: (state: LaunchState) => void) => () => void;
+  };
 }

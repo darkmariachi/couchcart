@@ -2,6 +2,7 @@ import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BrowserWindow, app, safeStorage, session, type IpcMainInvokeEvent } from 'electron';
+import type { IpcEvents } from '../shared/ipc';
 import { registerIpcHandlers } from './ipc/handlers';
 import { LauncherApp } from './launcherApp';
 import { log } from './logging/logger';
@@ -73,6 +74,18 @@ if (!app.requestSingleInstanceLock()) {
       dataDir: app.getPath('userData'),
       hostname: hostname(),
       encryptor: osEncryptor,
+      onLaunchStateChanged: (state) => {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        const event: keyof IpcEvents = 'game:stateChanged';
+        mainWindow.webContents.send(event, state);
+
+        // Get out of the way while the game runs, and take the screen back when it ends.
+        if (state.phase === 'running') mainWindow.hide();
+        if (state.phase === 'exited') {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      },
     });
     registerIpcHandlers(launcher, isTrustedSender);
     mainWindow = createWindow();

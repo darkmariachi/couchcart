@@ -1,20 +1,9 @@
 import { ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { z } from 'zod';
-import type {
-  IpcChannel,
-  IpcErrorInfo,
-  IpcRequest,
-  IpcResponse,
-  IpcResult,
-} from '../../shared/ipc';
+import type { IpcChannel, IpcRequest, IpcResponse, IpcResult } from '../../shared/ipc';
 import type { LauncherApp } from '../launcherApp';
 import { log } from '../logging/logger';
-import {
-  NetworkError,
-  NotAuthenticatedError,
-  RommApiError,
-  SessionExpiredError,
-} from '../romm/errors';
+import { toIpcError } from './errors';
 
 const noRequest = z.undefined();
 const serverUrl = z.string().trim().min(1).max(2048);
@@ -38,6 +27,9 @@ const requestSchemas: { [C in IpcChannel]: z.ZodType<IpcRequest<C>> } = {
   }),
   'library:romAssets': z.number().int().positive(),
   'debug:apiProbe': noRequest,
+  'retroarch:status': noRequest,
+  'game:play': z.number().int().positive(),
+  'game:state': noRequest,
 };
 
 type Handlers = {
@@ -57,6 +49,9 @@ export function registerIpcHandlers(
     'library:roms': (query) => app.listRoms(query),
     'library:romAssets': (romId) => app.getRomAssets(romId),
     'debug:apiProbe': () => app.runApiProbe(),
+    'retroarch:status': () => app.getRetroArchStatus(),
+    'game:play': (romId) => app.play(romId),
+    'game:state': () => app.getLaunchState(),
   };
 
   for (const channel of Object.keys(handlers) as IpcChannel[]) {
@@ -84,21 +79,4 @@ function register<C extends IpcChannel>(
       return { ok: false, error: toIpcError(error) };
     }
   });
-}
-
-function toIpcError(error: unknown): IpcErrorInfo {
-  if (error instanceof NotAuthenticatedError) {
-    return { code: 'not_authenticated', message: error.message };
-  }
-  if (error instanceof SessionExpiredError) {
-    return { code: 'session_expired', message: error.message };
-  }
-  if (error instanceof NetworkError) return { code: 'network', message: error.message };
-  if (error instanceof RommApiError) {
-    return { code: 'api', message: error.message, status: error.status };
-  }
-  if (error instanceof TypeError && error.message.includes('URL')) {
-    return { code: 'invalid_input', message: 'That does not look like a valid server URL.' };
-  }
-  return { code: 'internal', message: 'Something went wrong. See the log for details.' };
 }

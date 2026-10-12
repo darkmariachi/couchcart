@@ -37,8 +37,9 @@ export async function runApiProbe(
 }
 
 async function findSampleRom(client: RommClient): Promise<SimpleRom | null> {
-  const page = await client.listRoms({ limit: 25 });
-  return page.items.find((rom) => rom.has_simple_single_file) ?? page.items[0] ?? null;
+  const page = await client.listRoms({ limit: 50 });
+  const singleFile = page.items.filter((rom) => rom.has_simple_single_file);
+  return singleFile.find((rom) => rom.path_cover_small) ?? singleFile[0] ?? page.items[0] ?? null;
 }
 
 function tokenLifetimes(auth: AuthSession): Omit<ProbeFinding, 'question'> {

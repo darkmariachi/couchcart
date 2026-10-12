@@ -1,6 +1,8 @@
+import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import type {
   AuthStatus,
+  LaunchState,
   LoginRequest,
   PlatformSummary,
   ProbeFinding,
@@ -8,8 +10,13 @@ import type {
   RomPage,
   RomQuery,
   RomSummary,
+  RetroArchStatus,
   ServerInfo,
 } from '../shared/ipc';
+import { listInstalledCores } from './launcher/cores';
+import { LaunchService } from './launcher/launchService';
+import { locateRetroArch } from './launcher/retroarch';
+import { DataPaths } from './paths';
 import { AuthSession } from './romm/auth';
 import { createAuthenticatedFetch } from './romm/authenticatedFetch';
 import { RommClient, normalizeServerUrl, probeServer, type SimpleRom } from './romm/client';
@@ -27,12 +34,14 @@ export interface LauncherAppOptions {
   dataDir: string;
   hostname: string;
   encryptor: Encryptor;
+  onLaunchStateChanged: (state: LaunchState) => void;
 }
 
 /** Owns the main-process services and implements what the IPC layer exposes. */
 export class LauncherApp {
   private readonly settings: SettingsStore;
   private readonly credentials: CredentialStore;
+  private readonly launcher: LaunchService;
   private connection: Connection | null = null;
 
   constructor(options: LauncherAppOptions) {
@@ -41,6 +50,16 @@ export class LauncherApp {
       join(options.dataDir, 'credentials.bin'),
       options.encryptor,
     );
+
+    this.launcher = new LaunchService({
+      getRomSource: () => this.requireConnection().client,
+      getSettings: () => this.settings.get(),
+      paths: new DataPaths(options.dataDir, () => this.settings.get().cacheDir),
+      locateRetroArch,
+      listInstalledCores,
+      spawn,
+      onStateChanged: options.onLaunchStateChanged,
+    });
 
     const { serverUrl } = this.settings.get();
     if (serverUrl) this.connection = this.connect(serverUrl);
@@ -112,6 +131,18 @@ export class LauncherApp {
   runApiProbe(): Promise<ProbeFinding[]> {
     const { client, auth } = this.requireConnection();
     return runApiProbe(client, auth);
+  }
+
+  getRetroArchStatus(): Promise<RetroArchStatus> {
+    return this.launcher.getRetroArchStatus();
+  }
+
+  async play(romId: number): Promise<undefined> {
+    await this.launcher.play(romId);
+  }
+
+  getLaunchState(): LaunchState {
+    return this.launcher.getState();
   }
 
   private connect(serverUrl: string): Connection {
